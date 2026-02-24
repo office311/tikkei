@@ -1,0 +1,2352 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="תיקים">
+<meta name="theme-color" content="#0f1117">
+<title>מעקב תיקים משפטיים</title>
+<link rel="manifest" id="pwa-manifest">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2335;
+    --border: #2a3050;
+    --accent: #c9a84c;
+    --accent2: #e8c97a;
+    --red: #e05252;
+    --orange: #e08c2a;
+    --green: #52c97a;
+    --text: #e8eaf0;
+    --text2: #8b93b0;
+    --text3: #5a6180;
+    --radius: 12px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Heebo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    direction: rtl;
+    overscroll-behavior: none;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #0d1020 0%, #141826 100%);
+    border-bottom: 1px solid var(--border);
+    padding: calc(14px + var(--safe-top)) 20px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+    gap: 10px;
+  }
+  .header-title {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .header-title span { color: var(--text2); font-size: 12px; font-family: 'Heebo', sans-serif; font-weight: 400; margin-right: 8px; display: none; }
+  @media(min-width:600px){ .header-title span { display: inline; } }
+  .header-stats { display: flex; gap: 16px; }
+  .stat { text-align: center; }
+  .stat-num { font-size: 18px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 10px; color: var(--text3); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn-icon-header {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .btn-icon-header:hover { border-color: var(--accent); color: var(--accent); }
+  .sync-dot {
+    position: absolute; top: -3px; left: -3px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    border: 2px solid var(--bg);
+  }
+  .sync-dot.syncing { background: var(--orange); animation: pulse 1s infinite; }
+  .sync-dot.error { background: var(--red); }
+  .sync-dot.offline { display: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── Layout ── */
+  .layout { display: flex; height: calc(100vh - 64px); height: calc(100dvh - 64px); }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.3s ease, min-width 0.3s ease;
+  }
+  .sidebar.collapsed { width: 0; min-width: 0; }
+  @media(max-width:768px){
+    .sidebar { position: fixed; right: 0; top: 0; bottom: 0; z-index: 200; width: 80%; max-width: 300px; transform: translateX(100%); transition: transform 0.3s ease; padding-top: var(--safe-top); }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 199; }
+    .sidebar-backdrop.show { display: block; }
+    .layout { height: calc(100dvh - 60px); }
+  }
+  .sidebar-header {
+    padding: 16px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sidebar-title { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; }
+  .btn-add-case {
+    background: var(--accent);
+    color: #0f1117;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Heebo', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-add-case:hover { background: var(--accent2); transform: translateY(-1px); }
+  .sidebar-search-wrap { padding: 10px 12px 6px; border-bottom: 1px solid var(--border); }
+  .sidebar-search {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-family: 'Heebo', sans-serif;
+    direction: rtl;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .sidebar-search:focus { border-color: var(--accent); }
+  .sidebar-search::placeholder { color: var(--text3); }
+  .cases-count { font-size: 11px; color: var(--text3); padding: 5px 14px 2px; }
+  .cases-list { flex: 1; overflow-y: auto; padding: 6px 8px; }
+  .case-item {
+    padding: 11px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 3px;
+    border: 1px solid transparent;
+    position: relative;
+  }
+  .case-item:hover { background: var(--surface2); }
+  .case-item.active { background: var(--surface2); border-color: var(--accent); }
+  .case-item.active::before {
+    content: '';
+    position: absolute;
+    right: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 60%; background: var(--accent);
+    border-radius: 0 3px 3px 0;
+  }
+  .case-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; line-height: 1.4; }
+  .case-num-badge { display: inline-block; background: rgba(201,168,76,0.15); color: var(--accent); font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-left: 4px; font-family: monospace; }
+  .case-meta { font-size: 11px; color: var(--text3); display: flex; gap: 6px; }
+  .case-badge { font-size: 10px; padding: 2px 6px; border-radius: 20px; font-weight: 600; }
+  .badge-urgent { background: rgba(224,82,82,0.15); color: var(--red); }
+  .badge-normal { background: rgba(201,168,76,0.12); color: var(--accent); }
+  .badge-done { background: rgba(82,201,122,0.12); color: var(--green); }
+  @keyframes flashBorder { 0%,100%{border-color:var(--border)} 50%{border-color:var(--green);box-shadow:0 0 0 3px rgba(82,201,122,0.15)} }
+  .case-item.new-case { animation: flashBorder 1.2s ease; }
+  .view-all {
+    padding: 11px 12px; border-radius: 10px; cursor: pointer; transition: all 0.2s;
+    margin-bottom: 3px; border: 1px solid transparent;
+    font-size: 13px; font-weight: 600; color: var(--text2);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .view-all:hover, .view-all.active { background: var(--surface2); color: var(--text); }
+
+  /* ── Main ── */
+  .main { flex: 1; overflow-y: auto; padding: 22px 20px; }
+  @media(min-width:900px){ .main { padding: 28px 32px; } }
+  .main-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+  .main-title { font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 900; color: var(--text); }
+  @media(min-width:600px){ .main-title { font-size: 26px; } }
+  .main-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+  .btn-primary {
+    background: var(--accent); color: #0f1117;
+    border: none; border-radius: 10px; padding: 10px 18px;
+    font-size: 14px; font-weight: 700; font-family: 'Heebo', sans-serif;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(201,168,76,0.3); }
+
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+  .filter-btn {
+    padding: 5px 12px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text2); font-size: 12px; font-weight: 600;
+    font-family: 'Heebo', sans-serif; cursor: pointer; transition: all 0.2s;
+  }
+  .filter-btn:hover, .filter-btn.active { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+
+  .tasks-grid { display: flex; flex-direction: column; gap: 9px; }
+  .task-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+    display: flex; gap: 12px; align-items: flex-start;
+    transition: all 0.2s; animation: slideIn 0.25s ease;
+    position: relative; overflow: hidden;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  .task-card:hover { border-color: var(--accent); background: var(--surface2); }
+  .task-card.done { opacity: 0.5; }
+  .task-card.done .task-title { text-decoration: line-through; color: var(--text3); }
+  .task-card::before {
+    content: ''; position: absolute;
+    top: 0; right: 0; width: 4px; height: 100%;
+    border-radius: var(--radius) 0 0 var(--radius);
+  }
+  .task-card.priority-urgent::before { background: var(--red); }
+  .task-card.priority-normal::before { background: var(--accent); }
+  .task-card.priority-low::before { background: var(--text3); }
+  .task-checkbox {
+    width: 20px; height: 20px; border-radius: 6px;
+    border: 2px solid var(--border); cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; margin-top: 1px; background: transparent;
+  }
+  .task-checkbox:hover { border-color: var(--accent); }
+  .task-checkbox.checked { background: var(--accent); border-color: var(--accent); color: #0f1117; }
+  .task-body { flex: 1; min-width: 0; }
+  .task-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+  .task-title { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4; }
+  @media(min-width:600px){ .task-title { font-size: 15px; } }
+  .task-case-tag {
+    font-size: 11px; padding: 3px 9px; border-radius: 20px;
+    background: rgba(201,168,76,0.1); color: var(--accent); font-weight: 600;
+    white-space: nowrap; flex-shrink: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .task-notes { font-size: 13px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
+  .task-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .task-due { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .due-ok { color: var(--green); }
+  .due-soon { color: var(--orange); }
+  .due-overdue { color: var(--red); }
+  .days-badge { font-size: 11px; padding: 2px 7px; border-radius: 20px; font-weight: 700; }
+  .days-urgent { background: rgba(224,82,82,0.15); color: var(--red); }
+  .days-soon { background: rgba(224,140,42,0.15); color: var(--orange); }
+  .days-ok { background: rgba(82,201,122,0.12); color: var(--green); }
+  .days-done { background: rgba(139,147,176,0.1); color: var(--text3); }
+  .task-actions { display: flex; gap: 5px; opacity: 0; transition: opacity 0.2s; flex-shrink: 0; }
+  .task-card:hover .task-actions { opacity: 1; }
+  @media(max-width:768px){ .task-actions { opacity: 1; } }
+  .btn-icon {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); width: 28px; height: 28px; border-radius: 7px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; transition: all 0.2s; font-family: 'Heebo', sans-serif;
+  }
+  .btn-icon:hover { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn-icon.edit:hover { background: var(--accent); border-color: var(--accent); color: #0f1117; }
+
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--text3); }
+  .empty-state .icon { font-size: 44px; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 16px; color: var(--text2); margin-bottom: 6px; }
+  .empty-state p { font-size: 13px; }
+
+  .upcoming-header {
+    font-size: 11px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .upcoming-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Modals ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 1000; padding: 0;
+    backdrop-filter: blur(4px); animation: fadeIn 0.2s ease;
+  }
+  @media(min-width:600px){
+    .modal-overlay { align-items: center; padding: 20px; }
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px 20px 0 0; width: 100%;
+    padding: 24px 22px calc(24px + var(--safe-bottom));
+    animation: slideUp 0.25s ease; max-height: 90vh; overflow-y: auto;
+  }
+  @media(min-width:600px){
+    .modal { border-radius: 16px; max-width: 520px; padding: 28px; }
+  }
+  @keyframes slideUp { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+  @media(min-width:600px){ .modal-handle { display: none; } }
+  .modal-title { font-family: 'Frank Ruhl Libre', serif; font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+  .modal-subtitle { font-size: 13px; color: var(--text2); margin-bottom: 18px; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); border-radius: 9px; padding: 10px 14px;
+    font-size: 14px; font-family: 'Heebo', sans-serif; direction: rtl;
+    transition: border-color 0.2s; outline: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-select option { background: var(--bg); }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-start; margin-top: 20px; }
+  .btn-cancel {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text2); border-radius: 10px; padding: 10px 18px;
+    font-size: 14px; font-weight: 600; font-family: 'Heebo', sans-serif;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-cancel:hover { border-color: var(--text2); color: var(--text); }
+
+  /* ── Settings Panel ── */
+  .settings-section { margin-bottom: 22px; }
+  .settings-section-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; border-bottom: 1px solid var(--border); gap: 12px;
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-label { font-size: 14px; font-weight: 600; color: var(--text); }
+  .settings-desc { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .toggle {
+    width: 44px; height: 24px; background: var(--border); border-radius: 12px;
+    position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0; border: none;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; position: absolute; top: 3px; right: 3px;
+    width: 18px; height: 18px; background: white; border-radius: 50%;
+    transition: right 0.2s;
+  }
+  .toggle.on::after { right: calc(100% - 21px); }
+  .settings-input-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .settings-input {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px;
+    font-family: 'Heebo', sans-serif; direction: ltr; outline: none;
+    transition: border-color 0.2s; flex: 1;
+  }
+  .settings-input:focus { border-color: var(--accent); }
+  .btn-sm {
+    background: var(--accent); color: #0f1117; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; font-weight: 700;
+    font-family: 'Heebo', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-sm:hover { background: var(--accent2); }
+  .btn-sm.secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); }
+  .btn-sm.secondary:hover { border-color: var(--text2); color: var(--text); }
+  .btn-sm.danger { background: rgba(224,82,82,0.1); border: 1px solid var(--red); color: var(--red); }
+  .btn-sm.danger:hover { background: var(--red); color: white; }
+  .sync-status-msg { font-size: 12px; margin-top: 8px; padding: 8px 12px; border-radius: 8px; }
+  .sync-status-msg.ok { background: rgba(82,201,122,0.1); color: var(--green); }
+  .sync-status-msg.err { background: rgba(224,82,82,0.1); color: var(--red); }
+  .sync-status-msg.info { background: rgba(201,168,76,0.1); color: var(--accent); }
+
+  /* ── Notification badge on reminder btn ── */
+  .notif-badge {
+    position: absolute; top: -4px; left: -4px;
+    background: var(--red); color: white;
+    font-size: 10px; font-weight: 700;
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--bg);
+  }
+
+  /* ── Mobile bottom nav ── */
+  .bottom-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 0 calc(8px + var(--safe-bottom));
+    z-index: 150;
+    justify-content: space-around;
+  }
+  @media(max-width:768px){ .bottom-nav { display: flex; } .layout { padding-bottom: 60px; } }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    font-size: 10px; font-weight: 600; color: var(--text3);
+    cursor: pointer; padding: 4px 16px; border-radius: 10px;
+    transition: color 0.2s; border: none; background: none; font-family: 'Heebo', sans-serif;
+  }
+  .nav-item.active { color: var(--accent); }
+  .nav-item .nav-icon { font-size: 22px; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: calc(24px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+    background: var(--surface2); border: 1px solid var(--accent);
+    color: var(--text); padding: 10px 20px; border-radius: 10px;
+    font-size: 13px; z-index: 9999; white-space: nowrap;
+    animation: toastIn 0.3s ease;
+  }
+  @media(max-width:768px){ .toast { bottom: calc(80px + var(--safe-bottom)); } }
+  @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* ── PWA install banner ── */
+  .install-banner {
+    background: linear-gradient(135deg, rgba(201,168,76,0.15), rgba(201,168,76,0.05));
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+    animation: slideIn 0.3s ease;
+  }
+  .install-banner .icon { font-size: 28px; flex-shrink: 0; }
+  .install-banner-text { flex: 1; }
+  .install-banner-text strong { display: block; font-size: 14px; color: var(--accent); margin-bottom: 3px; }
+  .install-banner-text span { font-size: 12px; color: var(--text2); }
+  .install-banner-actions { display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="btn-icon-header" onclick="toggleSidebar()" title="תיקים" style="display:none" id="sidebar-toggle">☰</button>
+    <div class="header-title">⚖️ מעקב תיקים <span>ניהול הליכים משפטיים</span></div>
+  </div>
+  <div class="header-stats">
+    <div class="stat"><div class="stat-num" id="stat-open">0</div><div class="stat-label">פתוחות</div></div>
+    <div class="stat"><div class="stat-num" id="stat-urgent" style="color:var(--red)">0</div><div class="stat-label">דחופות</div></div>
+    <div class="stat"><div class="stat-num" id="stat-done" style="color:var(--green)">0</div><div class="stat-label">הושלמו</div></div>
+  </div>
+  <div class="header-actions">
+    <button class="btn-icon-header" onclick="openSettings()" title="הגדרות וסנכרון" id="sync-btn">
+      ⚙️
+      <div class="sync-dot offline" id="sync-dot"></div>
+    </button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">תיקים</span>
+      <button class="btn-add-case" onclick="openCaseModal()">+ תיק חדש</button>
+    </div>
+    <div class="sidebar-search-wrap">
+      <input class="sidebar-search" id="sidebar-search" placeholder="🔍 חיפוש תיק..." oninput="filterSidebar(this.value)" />
+    </div>
+    <div class="cases-list" id="cases-list"></div>
+  </div>
+
+  <div class="main" id="main-content"></div>
+</div>
+
+<!-- Mobile bottom nav -->
+<div class="bottom-nav">
+  <button class="nav-item active" id="nav-tasks" onclick="mobileNav('tasks')">
+    <span class="nav-icon">📋</span>מטלות
+  </button>
+  <button class="nav-item" id="nav-cases" onclick="mobileNav('cases')">
+    <span class="nav-icon">📁</span>תיקים
+  </button>
+  <button class="nav-item" id="nav-add" onclick="openTaskModal()">
+    <span class="nav-icon">➕</span>מטלה חדשה
+  </button>
+  <button class="nav-item" id="nav-settings" onclick="openSettings()">
+    <span class="nav-icon">⚙️</span>הגדרות
+  </button>
+</div>
+
+<!-- ── Task Modal ── -->
+<div class="modal-overlay" id="task-modal" style="display:none" onclick="if(event.target===this)closeTaskModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="task-modal-title">מטלה חדשה</div>
+    <div class="form-group">
+      <label class="form-label">תיאור המטלה *</label>
+      <input class="form-input" id="task-desc" placeholder="למשל: הגשת תצהיר עדות ראשית" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">תיק *</label>
+        <select class="form-select" id="task-case"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">עדיפות</label>
+        <select class="form-select" id="task-priority">
+          <option value="urgent">🔴 דחוף</option>
+          <option value="normal" selected>🟡 רגיל</option>
+          <option value="low">⚪ נמוך</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">תאריך יעד</label>
+      <input class="form-input" type="date" id="task-due" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">הערות</label>
+      <textarea class="form-textarea" id="task-notes" placeholder="פרטים, הנחיות השופט, מסמכים נדרשים..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveTask()">💾 שמור מטלה</button>
+      <button class="btn-cancel" onclick="closeTaskModal()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Case Modal ── -->
+<div class="modal-overlay" id="case-modal" style="display:none" onclick="if(event.target===this)closeCaseModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">➕ הוספת תיק חדש</div>
+    <div class="modal-subtitle">הזן פרטי התיק — יופיע מיד ברשימה</div>
+    <div class="form-group">
+      <label class="form-label">מספר תיק *</label>
+      <input class="form-input" id="case-number" placeholder="למשל: 1223" onkeydown="if(event.key==='Enter')document.getElementById('case-name').focus()" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">שם התיק / צדדים *</label>
+      <input class="form-input" id="case-name" placeholder="למשל: כהן נ' ישראל" onkeydown="if(event.key==='Enter')document.getElementById('case-court').focus()" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">ערכאה / בית משפט</label>
+      <input class="form-input" id="case-court" placeholder="למשל: בית משפט השלום תל אביב" onkeydown="if(event.key==='Enter')saveCase()" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveCase()">✅ הוסף תיק</button>
+      <button class="btn-cancel" onclick="closeCaseModal()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Settings Modal ── -->
+<div class="modal-overlay" id="settings-modal" style="display:none" onclick="if(event.target===this)closeSettings()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚙️ הגדרות</div>
+
+    <!-- Notifications -->
+    <div class="settings-section">
+      <div class="settings-section-title">🔔 תזכורות</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">התראות דפדפן</div>
+          <div class="settings-desc">קבל התראה לפני כל דדליין</div>
+        </div>
+        <button class="toggle" id="notif-toggle" onclick="toggleNotifications()"></button>
+      </div>
+      <div class="settings-row" id="notif-days-row">
+        <div>
+          <div class="settings-label">כמה ימים לפני הדדליין?</div>
+          <div class="settings-desc" id="notif-days-desc">התראה 3 ימים מראש</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn-sm secondary" onclick="changeNotifDays(-1)">−</button>
+          <span id="notif-days-val" style="color:var(--accent);font-weight:700;font-size:16px;min-width:20px;text-align:center">3</span>
+          <button class="btn-sm secondary" onclick="changeNotifDays(1)">+</button>
+        </div>
+      </div>
+      <div id="notif-status" style="display:none"></div>
+    </div>
+
+    <!-- Google Sheets Sync -->
+    <div class="settings-section">
+      <div class="settings-section-title">☁️ סנכרון Google Sheets</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">סנכרון עם Google Sheets</div>
+          <div class="settings-desc">שמור נתונים בענן ↔ גישה מכל מכשיר</div>
+        </div>
+        <button class="toggle" id="sync-toggle" onclick="toggleSync()"></button>
+      </div>
+      <div id="sync-config-area" style="display:none">
+        <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin:10px 0;font-size:13px;color:var(--text2);line-height:1.7">
+          <strong style="color:var(--accent);display:block;margin-bottom:6px">הגדרה חד-פעמית (5 דקות):</strong>
+          1. פתח <a href="https://sheets.google.com" target="_blank" style="color:var(--accent)">Google Sheets</a> → צור גיליון חדש<br>
+          2. כלים → עורך Apps Script → מחק הכל ← הדבק את הקוד שבכפתור<br>
+          3. פרוס → פריסה חדשה → אפליקציית אינטרנט → כל אחד יכול לגשת<br>
+          4. העתק את ה-URL ← הדבק כאן ↓
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button class="btn-sm secondary" onclick="copyAppsScript()">📋 העתק קוד Apps Script</button>
+        </div>
+        <div class="settings-input-row">
+          <input class="settings-input" id="sheets-url" placeholder="https://script.google.com/macros/s/..." />
+          <button class="btn-sm" onclick="testSync()">בדוק</button>
+        </div>
+        <div id="sync-status-msg"></div>
+        <div class="settings-row" style="padding-top:10px">
+          <div>
+            <div class="settings-label">סנכרן עכשיו</div>
+            <div class="settings-desc" id="last-sync-time">לא סונכרן עדיין</div>
+          </div>
+          <button class="btn-sm" onclick="doSync('push')">⬆ שלח</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">שחזר מהענן</div>
+            <div class="settings-desc">דרוס נתונים מקומיים עם הענן</div>
+          </div>
+          <button class="btn-sm secondary" onclick="doSync('pull')">⬇ משוך</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backup -->
+    <div class="settings-section">
+      <div class="settings-section-title">💾 גיבוי ויצוא</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">יצוא גיבוי</div>
+          <div class="settings-desc">הורד קובץ JSON עם כל הנתונים</div>
+        </div>
+        <button class="btn-sm" onclick="exportData()">⬇ יצוא</button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">יבוא גיבוי</div>
+          <div class="settings-desc">שחזר מקובץ JSON</div>
+        </div>
+        <button class="btn-sm secondary" onclick="document.getElementById('import-file').click()">⬆ יבוא</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">יצוא Excel / CSV</div>
+          <div class="settings-desc">פתח ב-Excel לצפייה</div>
+        </div>
+        <button class="btn-sm secondary" onclick="exportCSV()">📊 CSV</button>
+      </div>
+    </div>
+
+    <!-- PWA Install -->
+    <div class="settings-section" id="pwa-section" style="display:none">
+      <div class="settings-section-title">📱 התקנה לנייד</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">הוסף למסך הבית</div>
+          <div class="settings-desc">גישה מהירה כמו אפליקציה אמיתית</div>
+        </div>
+        <button class="btn-sm" id="pwa-install-btn" onclick="installPWA()">התקן</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSettings()">סגור</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════════════════
+let cases = JSON.parse(localStorage.getItem('lm_cases') || '[]');
+let tasks = JSON.parse(localStorage.getItem('lm_tasks') || '[]');
+let settings = JSON.parse(localStorage.getItem('lm_settings') || '{}');
+settings = Object.assign({ notifEnabled: false, notifDays: 3, syncEnabled: false, sheetsUrl: '' }, settings);
+
+let selectedCase = null;
+let activeFilter = 'all';
+let editingTaskId = null;
+let sidebarFilter = '';
+let deferredPrompt = null;
+
+function save() {
+  localStorage.setItem('lm_cases', JSON.stringify(cases));
+  localStorage.setItem('lm_tasks', JSON.stringify(tasks));
+}
+function saveSettings() {
+  localStorage.setItem('lm_settings', JSON.stringify(settings));
+}
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+
+// ═══════════════════════════════════════════════════════
+// PWA SETUP
+// ═══════════════════════════════════════════════════════
+// Inline manifest
+const manifest = {
+  name: 'מעקב תיקים משפטיים',
+  short_name: 'תיקים',
+  description: 'ניהול מטלות ומועדים משפטיים',
+  start_url: '.',
+  display: 'standalone',
+  background_color: '#0f1117',
+  theme_color: '#0f1117',
+  dir: 'rtl',
+  lang: 'he',
+  icons: [
+    { src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230f1117"/><text y="70" x="50" text-anchor="middle" font-size="60">⚖️</text></svg>', sizes: '192x192', type: 'image/svg+xml' },
+    { src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230f1117"/><text y="70" x="50" text-anchor="middle" font-size="60">⚖️</text></svg>', sizes: '512x512', type: 'image/svg+xml' }
+  ]
+};
+const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+document.getElementById('pwa-manifest').href = URL.createObjectURL(blob);
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('pwa-section').style.display = 'block';
+});
+function installPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(r => {
+      if (r.outcome === 'accepted') showToast('✅ האפליקציה הותקנה!');
+      deferredPrompt = null;
+    });
+  } else {
+    showToast('💡 Safari: שתף → הוסף למסך הבית');
+  }
+}
+
+// Service worker for offline
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE = 'legal-app-v1';
+    self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.add('/'))));
+    self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+  `;
+  const swBlob = new Blob([swCode], {type: 'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
+}
+
+// ═══════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════════
+function toggleNotifications() {
+  if (!settings.notifEnabled) {
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') {
+        settings.notifEnabled = true;
+        saveSettings();
+        updateNotifUI();
+        scheduleNotifications();
+        showToast('🔔 התראות הופעלו!');
+      } else {
+        showToast('❌ לא ניתנה הרשאה להתראות');
+        document.getElementById('notif-status').innerHTML = '<div class="sync-status-msg err">יש לאשר הרשאות בדפדפן ← לחץ על 🔒 ליד כתובת הדף</div>';
+        document.getElementById('notif-status').style.display = 'block';
+      }
+    });
+  } else {
+    settings.notifEnabled = false;
+    saveSettings();
+    updateNotifUI();
+    showToast('🔕 התראות כובו');
+  }
+}
+function changeNotifDays(delta) {
+  settings.notifDays = Math.max(1, Math.min(14, (settings.notifDays || 3) + delta));
+  saveSettings();
+  updateNotifUI();
+  if (settings.notifEnabled) scheduleNotifications();
+}
+function updateNotifUI() {
+  const toggle = document.getElementById('notif-toggle');
+  const daysVal = document.getElementById('notif-days-val');
+  const daysDesc = document.getElementById('notif-days-desc');
+  if (toggle) {
+    toggle.className = 'toggle' + (settings.notifEnabled ? ' on' : '');
+  }
+  if (daysVal) daysVal.textContent = settings.notifDays;
+  if (daysDesc) daysDesc.textContent = `התראה ${settings.notifDays} ימים מראש`;
+}
+function scheduleNotifications() {
+  if (!settings.notifEnabled || Notification.permission !== 'granted') return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = tasks.filter(t => {
+    if (t.done || !t.due) return false;
+    const due = new Date(t.due); due.setHours(0,0,0,0);
+    const diffDays = Math.ceil((due - today) / 86400000);
+    return diffDays >= 0 && diffDays <= settings.notifDays;
+  });
+  upcoming.forEach(t => {
+    const c = cases.find(x => x.id === t.caseId);
+    const due = new Date(t.due); due.setHours(0,0,0,0);
+    const daysLeft = Math.ceil((due - today) / 86400000);
+    const label = daysLeft === 0 ? 'היום!' : daysLeft === 1 ? 'מחר' : `בעוד ${daysLeft} ימים`;
+    new Notification(`⚖️ ${label}: ${t.desc}`, {
+      body: c ? `תיק ${c.number} — ${c.name}` : '',
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="80" font-size="80">⚖️</text></svg>',
+      tag: t.id
+    });
+  });
+}
+// Check notifications on load
+function checkAndNotify() {
+  if (settings.notifEnabled && Notification.permission === 'granted') {
+    scheduleNotifications();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════════════════════
+const APPS_SCRIPT_CODE = `function doPost(e) {
+  const data = JSON.parse(e.postData.contents);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  if (data.action === 'push') {
+    // Save tasks
+    let sh = ss.getSheetByName('tasks') || ss.insertSheet('tasks');
+    sh.clearContents();
+    sh.appendRow(['id','desc','caseId','priority','due','notes','done','createdAt']);
+    data.tasks.forEach(t => sh.appendRow([t.id,t.desc,t.caseId,t.priority,t.due||'',t.notes||'',t.done?'true':'false',t.createdAt]));
+    // Save cases
+    let sc = ss.getSheetByName('cases') || ss.insertSheet('cases');
+    sc.clearContents();
+    sc.appendRow(['id','name','number','court','createdAt']);
+    data.cases.forEach(c => sc.appendRow([c.id,c.name,c.number||'',c.court||'',c.createdAt]));
+    return ContentService.createTextOutput(JSON.stringify({ok:true,pushed: data.tasks.length + ' tasks, ' + data.cases.length + ' cases'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  if (data.action === 'pull') {
+    let sh = ss.getSheetByName('tasks');
+    let sc = ss.getSheetByName('cases');
+    const tasks = sh ? sh.getDataRange().getValues().slice(1).map(r=>({id:r[0],desc:r[1],caseId:r[2],priority:r[3],due:r[4],notes:r[5],done:r[6]==='true',createdAt:r[7]})) : [];
+    const cases = sc ? sc.getDataRange().getValues().slice(1).map(r=>({id:r[0],name:r[1],number:r[2],court:r[3],createdAt:r[4]})) : [];
+    return ContentService.createTextOutput(JSON.stringify({ok:true,tasks,cases})).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({ok:false,error:'unknown action'})).setMimeType(ContentService.MimeType.JSON);
+}
+function doGet(e) { return ContentService.createTextOutput('Legal App Sync API').setMimeType(ContentService.MimeType.TEXT); }`;
+
+function copyAppsScript() {
+  navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(() => showToast('📋 קוד הועתק!'));
+}
+
+function toggleSync() {
+  settings.syncEnabled = !settings.syncEnabled;
+  saveSettings();
+  updateSyncUI();
+}
+
+function updateSyncUI() {
+  const toggle = document.getElementById('sync-toggle');
+  const area = document.getElementById('sync-config-area');
+  const dot = document.getElementById('sync-dot');
+  if (toggle) toggle.className = 'toggle' + (settings.syncEnabled ? ' on' : '');
+  if (area) area.style.display = settings.syncEnabled ? 'block' : 'none';
+  if (document.getElementById('sheets-url')) document.getElementById('sheets-url').value = settings.sheetsUrl || '';
+  if (dot) {
+    dot.className = 'sync-dot ' + (settings.syncEnabled && settings.sheetsUrl ? 'ok' : 'offline');
+  }
+}
+
+async function testSync() {
+  const url = document.getElementById('sheets-url').value.trim();
+  if (!url) { showSyncMsg('הכנס URL תחילה', 'err'); return; }
+  settings.sheetsUrl = url;
+  saveSettings();
+  showSyncMsg('⏳ בודק חיבור...', 'info');
+  try {
+    const r = await fetch(url + '?test=1');
+    const txt = await r.text();
+    if (r.ok) {
+      showSyncMsg('✅ החיבור תקין! לחץ "שלח" לסנכרון ראשון', 'ok');
+      updateSyncUI();
+    } else {
+      showSyncMsg('❌ שגיאה: ' + txt.substring(0,100), 'err');
+    }
+  } catch(e) {
+    showSyncMsg('❌ לא ניתן להגיע ל-URL — וודא שהפרסת כ-"כל אחד יכול לגשת"', 'err');
+  }
+}
+
+async function doSync(direction, silent = false) {
+  if (!settings.sheetsUrl) { if (!silent) showToast('❌ הכנס URL תחילה בהגדרות'); return; }
+  const dot = document.getElementById('sync-dot');
+  if (dot) dot.className = 'sync-dot syncing';
+  if (!silent) showSyncMsg('⏳ ' + (direction === 'push' ? 'שולח נתונים...' : 'מושך נתונים...'), 'info');
+  try {
+    const resp = await fetch(settings.sheetsUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: direction, tasks, cases })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      if (direction === 'pull' && data.tasks) {
+        tasks = data.tasks.filter(t => t.id);
+        cases = data.cases.filter(c => c.id && c.name);
+        save(); renderSidebar(); renderMain(); updateStats();
+      }
+      const now = new Date().toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'});
+      settings.lastSync = now;
+      saveSettings();
+      const el = document.getElementById('last-sync-time');
+      if (el) el.textContent = 'סנכרן לאחרונה: ' + now;
+      if (!silent) showSyncMsg('✅ ' + (direction === 'push' ? 'נתונים נשלחו בהצלחה' : 'נתונים עודכנו מהענן'), 'ok');
+      if (dot) dot.className = 'sync-dot ok';
+    } else {
+      if (!silent) showSyncMsg('❌ שגיאה: ' + (data.error || 'לא ידוע'), 'err');
+      if (dot) dot.className = 'sync-dot error';
+    }
+  } catch(e) {
+    if (!silent) showSyncMsg('❌ שגיאת רשת: ' + e.message, 'err');
+    if (dot) dot.className = 'sync-dot error';
+  }
+}
+
+// Auto-push after every data change (debounced 3 sec)
+let syncPushTimer = null;
+function autoSyncPush() {
+  if (!settings.syncEnabled || !settings.sheetsUrl) return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(() => doSync('push', true), 3000);
+}
+
+function showSyncMsg(msg, type) {
+  const el = document.getElementById('sync-status-msg');
+  if (el) { el.innerHTML = `<div class="sync-status-msg ${type}">${msg}</div>`; }
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════
+function exportData() {
+  const data = { cases, tasks, exportedAt: new Date().toISOString(), version: 1 };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `תיקים-גיבוי-${new Date().toLocaleDateString('he-IL').replace(/\//g,'-')}.json`;
+  a.click();
+  showToast('✅ גיבוי הורד!');
+}
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.cases && data.tasks) {
+        if (confirm(`יבוא ${data.cases.length} תיקים ו-${data.tasks.length} מטלות. הנתונים הקיימים יוחלפו. להמשיך?`)) {
+          cases = data.cases;
+          tasks = data.tasks;
+          save(); renderSidebar(); renderMain(); updateStats();
+          showToast('✅ נתונים יובאו בהצלחה!');
+        }
+      } else { showToast('❌ קובץ לא תקין'); }
+    } catch { showToast('❌ שגיאה בקריאת הקובץ'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+function exportCSV() {
+  const rows = [['מספר תיק','שם התיק','ערכאה','תיאור מטלה','עדיפות','תאריך יעד','הושלם','הערות']];
+  tasks.forEach(t => {
+    const c = cases.find(x => x.id === t.caseId) || {};
+    const pMap = {urgent:'דחוף', normal:'רגיל', low:'נמוך'};
+    rows.push([c.number||'', c.name||'', c.court||'', t.desc, pMap[t.priority]||'', t.due||'', t.done?'כן':'לא', t.notes||'']);
+  });
+  const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `תיקים-${new Date().toLocaleDateString('he-IL').replace(/\//g,'-')}.csv`;
+  a.click();
+  showToast('📊 CSV הורד!');
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS MODAL
+// ═══════════════════════════════════════════════════════
+function openSettings() {
+  document.getElementById('settings-modal').style.display = 'flex';
+  updateNotifUI();
+  updateSyncUI();
+  if (settings.lastSync) document.getElementById('last-sync-time').textContent = 'סנכרן לאחרונה: ' + settings.lastSync;
+}
+function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
+
+// ═══════════════════════════════════════════════════════
+// CASE MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function openCaseModal() {
+  closeSidebar();
+  document.getElementById('case-modal').style.display = 'flex';
+  document.getElementById('case-name').value = '';
+  document.getElementById('case-number').value = '';
+  document.getElementById('case-court').value = '';
+  setTimeout(() => document.getElementById('case-number').focus(), 100);
+}
+function closeCaseModal() { document.getElementById('case-modal').style.display = 'none'; }
+function saveCase() {
+  const name = document.getElementById('case-name').value.trim();
+  const number = document.getElementById('case-number').value.trim();
+  if (!number) { document.getElementById('case-number').style.borderColor = 'var(--red)'; document.getElementById('case-number').focus(); return; }
+  if (!name) { document.getElementById('case-name').style.borderColor = 'var(--red)'; document.getElementById('case-name').focus(); return; }
+  const newId = generateId();
+  cases.push({ id: newId, name, number, court: document.getElementById('case-court').value.trim(), createdAt: new Date().toISOString() });
+  save();
+  closeCaseModal();
+  const searchEl = document.getElementById('sidebar-search');
+  if (searchEl) searchEl.value = '';
+  sidebarFilter = '';
+  renderSidebar();
+  showToast('✅ תיק ' + number + ' נוסף!');
+  autoSyncPush();
+  setTimeout(() => {
+    const items = document.querySelectorAll('.case-item');
+    const el = Array.from(items).find(i => i.dataset.caseId === newId);
+    if (el) { el.classList.add('new-case'); el.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  }, 120);
+}
+
+// ═══════════════════════════════════════════════════════
+// TASK MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function populateCaseSelect(selectedCaseId) {
+  const sel = document.getElementById('task-case');
+  sel.innerHTML = cases.map(c =>
+    `<option value="${c.id}" ${c.id === selectedCaseId ? 'selected' : ''}>${c.number ? c.number + ' · ' : ''}${c.name}</option>`
+  ).join('');
+}
+function openTaskModal(caseId = null) {
+  editingTaskId = null;
+  document.getElementById('task-modal-title').textContent = 'מטלה חדשה';
+  document.getElementById('task-desc').value = '';
+  document.getElementById('task-notes').value = '';
+  document.getElementById('task-priority').value = 'normal';
+  const d = new Date(); d.setDate(d.getDate() + 14);
+  document.getElementById('task-due').value = d.toISOString().split('T')[0];
+  populateCaseSelect(caseId || selectedCase || (cases[0] && cases[0].id));
+  document.getElementById('task-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('task-desc').focus(), 100);
+}
+function closeTaskModal() { document.getElementById('task-modal').style.display = 'none'; editingTaskId = null; }
+function saveTask() {
+  const desc = document.getElementById('task-desc').value.trim();
+  if (!desc) { document.getElementById('task-desc').style.borderColor = 'var(--red)'; return; }
+  const caseId = document.getElementById('task-case').value;
+  const taskData = {
+    desc, caseId, priority: document.getElementById('task-priority').value,
+    due: document.getElementById('task-due').value,
+    notes: document.getElementById('task-notes').value.trim(),
+    done: false, createdAt: new Date().toISOString()
+  };
+  if (editingTaskId) {
+    const idx = tasks.findIndex(t => t.id === editingTaskId);
+    if (idx !== -1) { tasks[idx] = { ...tasks[idx], ...taskData }; }
+  } else {
+    tasks.push({ id: generateId(), ...taskData });
+  }
+  save(); closeTaskModal(); renderMain(); updateStats(); renderSidebar();
+  showToast(editingTaskId ? '✏️ מטלה עודכנה' : '✅ מטלה נוספה!');
+  if (settings.notifEnabled) scheduleNotifications();
+  autoSyncPush();
+}
+function editTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  editingTaskId = id;
+  document.getElementById('task-modal-title').textContent = 'עריכת מטלה';
+  document.getElementById('task-desc').value = t.desc;
+  document.getElementById('task-notes').value = t.notes || '';
+  document.getElementById('task-priority').value = t.priority;
+  document.getElementById('task-due').value = t.due || '';
+  populateCaseSelect(t.caseId);
+  document.getElementById('task-modal').style.display = 'flex';
+}
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  save(); renderMain(); updateStats(); renderSidebar();
+  showToast('🗑 מטלה נמחקה');
+  autoSyncPush();
+}
+function toggleTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if (t) { t.done = !t.done; save(); renderMain(); updateStats(); renderSidebar(); autoSyncPush(); }
+}
+
+// ═══════════════════════════════════════════════════════
+// DATE HELPERS
+// ═══════════════════════════════════════════════════════
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(dateStr); due.setHours(0,0,0,0);
+  return Math.ceil((due - today) / 86400000);
+}
+function dueBadge(t) {
+  if (t.done) return `<span class="days-badge days-done">✓ הושלם</span>`;
+  const d = daysUntil(t.due);
+  if (d === null) return '';
+  if (d < 0) return `<span class="days-badge days-urgent">פג תוקף לפני ${-d} ימים</span>`;
+  if (d === 0) return `<span class="days-badge days-urgent">⚠ היום!</span>`;
+  if (d === 1) return `<span class="days-badge days-urgent">⚠ מחר</span>`;
+  if (d <= 7) return `<span class="days-badge days-soon">${d} ימים</span>`;
+  return `<span class="days-badge days-ok">${d} ימים</span>`;
+}
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('he-IL', {day:'numeric', month:'numeric', year:'2-digit'});
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function updateStats() {
+  const open = tasks.filter(t => !t.done).length;
+  const urgent = tasks.filter(t => !t.done && t.priority === 'urgent').length;
+  const done = tasks.filter(t => t.done).length;
+  document.getElementById('stat-open').textContent = open;
+  document.getElementById('stat-urgent').textContent = urgent;
+  document.getElementById('stat-done').textContent = done;
+}
+
+let sidebarFilterTerm = '';
+function filterSidebar(q) { sidebarFilterTerm = q.trim().toLowerCase(); renderSidebar(); }
+
+function renderSidebar() {
+  const list = document.getElementById('cases-list');
+  const viewAll = `<div class="view-all ${!selectedCase ? 'active' : ''}" onclick="selectCase(null)"><span>📋</span> כל המטלות</div>`;
+
+  let filtered = cases;
+  if (sidebarFilterTerm) {
+    filtered = cases.filter(c =>
+      c.name.toLowerCase().includes(sidebarFilterTerm) ||
+      (c.number && c.number.toLowerCase().includes(sidebarFilterTerm))
+    );
+  }
+
+  const countLabel = `<div class="cases-count">${sidebarFilterTerm ? filtered.length + ' מתוך ' + cases.length : cases.length} תיקים</div>`;
+
+  const hl = str => sidebarFilterTerm
+    ? str.replace(new RegExp('(' + sidebarFilterTerm.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi'),
+        '<mark style="background:rgba(201,168,76,0.3);color:var(--accent);border-radius:2px">$1</mark>')
+    : str;
+
+  const casesHtml = filtered.map(c => {
+    const ct = tasks.filter(t => t.caseId === c.id);
+    const open = ct.filter(t => !t.done);
+    const urgent = open.filter(t => t.priority === 'urgent');
+    let badge = '';
+    if (urgent.length) badge = `<span class="case-badge badge-urgent">${urgent.length} דחוף</span>`;
+    else if (open.length) badge = `<span class="case-badge badge-normal">${open.length} פתוח</span>`;
+    else if (ct.length) badge = `<span class="case-badge badge-done">✓</span>`;
+    return `<div class="case-item ${selectedCase === c.id ? 'active' : ''}" data-case-id="${c.id}" onclick="selectCase('${c.id}')">
+      <div class="case-name">${c.number ? `<span class="case-num-badge">${hl(c.number)}</span> ` : ''}${hl(c.name)}</div>
+      <div class="case-meta">${badge}</div>
+    </div>`;
+  }).join('');
+
+  const noRes = sidebarFilterTerm && !filtered.length
+    ? `<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">לא נמצאו תיקים</div>` : '';
+
+  list.innerHTML = viewAll + countLabel + casesHtml + noRes;
+}
+
+function selectCase(caseId) {
+  selectedCase = caseId;
+  activeFilter = 'all';
+  closeSidebar();
+  renderSidebar();
+  renderMain();
+}
+function setFilter(f) { activeFilter = f; renderMain(); }
+
+function renderMain() {
+  const el = document.getElementById('main-content');
+  const c = cases.find(x => x.id === selectedCase);
+
+  // Filter tasks
+  let filtered = selectedCase ? tasks.filter(t => t.caseId === selectedCase) : [...tasks];
+  if (activeFilter === 'open') filtered = filtered.filter(t => !t.done);
+  else if (activeFilter === 'urgent') filtered = filtered.filter(t => !t.done && t.priority === 'urgent');
+  else if (activeFilter === 'done') filtered = filtered.filter(t => t.done);
+
+  // Sort: overdue first, then by days, then done last
+  filtered.sort((a,b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const da = daysUntil(a.due) ?? 999, db = daysUntil(b.due) ?? 999;
+    if (da !== db) return da - db;
+    const pv = {urgent:0,normal:1,low:2};
+    return (pv[a.priority]||1) - (pv[b.priority]||1);
+  });
+
+  const titleHtml = c
+    ? `<div><div class="main-title">${c.number ? `<span style="font-size:18px;color:var(--accent);font-family:monospace">${c.number}</span> · ` : ''}${c.name}</div><div class="main-subtitle">${c.court || ''}</div></div>`
+    : `<div class="main-title">📋 כל המטלות</div>`;
+
+  const filterBar = `<div class="filter-bar">
+    <button class="filter-btn ${activeFilter==='all'?'active':''}" onclick="setFilter('all')">הכל</button>
+    <button class="filter-btn ${activeFilter==='open'?'active':''}" onclick="setFilter('open')">פתוחות</button>
+    <button class="filter-btn ${activeFilter==='urgent'?'active':''}" onclick="setFilter('urgent')">🔴 דחופות</button>
+    <button class="filter-btn ${activeFilter==='done'?'active':''}" onclick="setFilter('done')">✓ הושלמו</button>
+  </div>`;
+
+  // PWA install banner (if applicable)
+  let installBanner = '';
+
+  if (!filtered.length) {
+    el.innerHTML = `
+      ${installBanner}
+      <div class="main-header">${titleHtml}<button class="btn-primary" onclick="openTaskModal('${selectedCase||''}')">+ מטלה חדשה</button></div>
+      ${filterBar}
+      <div class="empty-state"><div class="icon">📂</div><h3>אין מטלות כאן</h3><p>לחץ "+ מטלה חדשה" להוספה</p></div>`;
+    return;
+  }
+
+  // Group tasks
+  const overdue = filtered.filter(t => !t.done && daysUntil(t.due) !== null && daysUntil(t.due) < 0);
+  const today_ = filtered.filter(t => !t.done && daysUntil(t.due) === 0);
+  const thisWeek = filtered.filter(t => !t.done && daysUntil(t.due) !== null && daysUntil(t.due) > 0 && daysUntil(t.due) <= 7);
+  const later = filtered.filter(t => !t.done && (daysUntil(t.due) === null || daysUntil(t.due) > 7));
+  const done_ = filtered.filter(t => t.done);
+
+  const taskCard = t => {
+    const cv = cases.find(x => x.id === t.caseId);
+    const caseTag = !selectedCase && cv ? `<span class="task-case-tag">${cv.number ? cv.number + ' · ' : ''}${cv.name}</span>` : '';
+    return `<div class="task-card priority-${t.priority} ${t.done?'done':''}">
+      <div class="task-checkbox ${t.done?'checked':''}" onclick="toggleTask('${t.id}')">${t.done?'✓':''}</div>
+      <div class="task-body">
+        <div class="task-top">
+          <div class="task-title">${t.desc}</div>
+          <div style="display:flex;gap:6px;align-items:center">${caseTag}<div class="task-actions">
+            <button class="btn-icon edit" onclick="editTask('${t.id}')" title="עריכה">✏️</button>
+            <button class="btn-icon" onclick="deleteTask('${t.id}')" title="מחיקה">🗑</button>
+          </div></div>
+        </div>
+        ${t.notes ? `<div class="task-notes">${t.notes}</div>` : ''}
+        <div class="task-footer">
+          ${t.due ? `<span class="task-due ${daysUntil(t.due)<0?'due-overdue':daysUntil(t.due)<=3?'due-soon':'due-ok'}">📅 ${fmtDate(t.due)}</span>` : ''}
+          ${dueBadge(t)}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const section = (label, arr) => arr.length
+    ? `<div class="upcoming-header">${label} <span style="color:var(--accent)">${arr.length}</span></div><div class="tasks-grid">${arr.map(taskCard).join('')}</div>` : '';
+
+  el.innerHTML = `
+    ${installBanner}
+    <div class="main-header">${titleHtml}<button class="btn-primary" onclick="openTaskModal('${selectedCase||''}')">+ מטלה חדשה</button></div>
+    ${filterBar}
+    ${section('🔴 פג תוקף', overdue)}
+    ${section('⚠️ היום', today_)}
+    ${section('📅 השבוע', thisWeek)}
+    ${section('📋 מאוחר יותר', later)}
+    ${section('✓ הושלמו', done_)}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// MOBILE HELPERS
+// ═══════════════════════════════════════════════════════
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebar-backdrop');
+  sb.classList.toggle('open');
+  bd.classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('show');
+}
+function mobileNav(tab) {
+  ['tasks','cases','settings'].forEach(t => document.getElementById('nav-'+t)?.classList.remove('active'));
+  document.getElementById('nav-'+tab)?.classList.add('active');
+  if (tab === 'cases') toggleSidebar();
+  else if (tab === 'tasks') { closeSidebar(); }
+  else if (tab === 'settings') openSettings();
+}
+
+// Responsive sidebar toggle button
+function checkMobile() {
+  const isMobile = window.innerWidth <= 768;
+  document.getElementById('sidebar-toggle').style.display = isMobile ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkMobile);
+checkMobile();
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  toastTimer = setTimeout(() => t.remove(), 2800);
+}
+
+// ═══════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'n' || e.key === 'N') openTaskModal();
+  if (e.key === 'Escape') {
+    closeTaskModal(); closeCaseModal(); closeSettings();
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// CASES DATA (600+)
+// ═══════════════════════════════════════════════════════
+
+// Init with real cases (600+) from רשימת_תיקים.docx
+if (cases.length === 0) {
+  cases = [
+    { id: generateId(), name: 'טרחס נ\' לוי גורדן פרוייקטים ואח\'', number: '600', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'היילזגי נ\' ר.ג.א', number: '601', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' ולדימיר', number: '602', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' אייבורי', number: '603', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנדמראים נ\' אופיר', number: '604', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סנאיט נ\' מולטיגול', number: '605', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברקי נ\' קפלן את לוי', number: '606', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרמאי נ\' גני תקווה', number: '607', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קוני נ\' לאמור', number: '608', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מנגס נ\' קפלן את לוי וי.ב. שיא משאבים', number: '609', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מקסב נ\' ברקת', number: '610', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' אדיב עטיה', number: '611', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אילן ת. חוב ביטוח לאומי', number: '612', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שי בנימיני', number: '613', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יניב רום יזמות בע"מ', number: '614', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' אופק', number: '615', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלה נ\' אחד מעל כולם', number: '616', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' אופוס', number: '617', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' דגש-ניהול ואחזקת מבנים', number: '617', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קיפלה נ\' דגש-ניהול ואחזקת מבנים', number: '618', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קסה נ\' ברכת + מדיטק', number: '619', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' מלון הים האדום', number: '620', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מנדי כהנא נ\' מלון אריסטוקרט', number: '621', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פיש נ\' הלקוח המרוצה', number: '622', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שאויט נ\' אפטאון', number: '623', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שלומי קריגר נ\' סיני ציון', number: '624', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יעקב אברהם נ\' אשר ונטורה', number: '625', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' מסעדת מנואל', number: '626', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הפטום נ\' מסעדת מנואל', number: '627', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמסון נ\' טוטל קלין ובסט וורק', number: '628', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טסילה נ\' טוטל קלין', number: '629', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' שיבולת השרון', number: '630', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' הלקוח המרוצה', number: '631', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ביניים נ\' א.ס אבטחה מקצועית (ת.ב חוב)', number: '632', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אשפר נ\' וניליק', number: '633', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מקסימום ניקיון', number: '634', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צ\'אול נ\' מקסימום ובעלז (אהרון הלוי)', number: '634/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' מקסימום ובעלז (אהרון הלוי)', number: '634/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימנה נ\' מקסימום (בני רובין)', number: '634/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סולומון נ\' מקסימום (דינה טדלה)', number: '634/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' מקסימום ואח\' (דניאל ועקנין)', number: '634/5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וולדי נ\' מקסימום ושובע (דוד בר חוה)', number: '634/6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבן נ\' מקסימום ונתיב החסד (עופר בן אבי)', number: '634/7', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאלה נ\' מקסימום ומסעדה יהודית (שטינוביץ)', number: '634/8', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' מקסימום ומהדרין מאפים (אורטל)', number: '634/9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' מקסימום ועטרת שלמה (רונן הלר)', number: '634/10', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוסה נ\' מקסימום', number: '634/11', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' מקסימום והמכירה לישיבות (ליאב)', number: '634/12', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רשות האוכלוסין נ\' מקסימום ויצחק שטיינברג', number: '634/13', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמיאל נ\' מקסימום והבית כנסת הגדול (ליאב)', number: '634/14', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גונצה נ\' מקסימום ומהדרין מאפים (דינה טדלה)', number: '634/15', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אברה צגאי נ\' מקסימום ונתיב החסד (אמיר גז)', number: '634/16', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאללה עומר נ\' מקסימום והדר פודים(שטינוביץ)', number: '634/17', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימנה נ\' מקסימום ומתי לוין (מסדה)', number: '634/18', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס טספאי נ\' מקסימום ובר כל (טוני מאיר)', number: '634/19', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דסבלה נ\' מקסימום ונתיב החסד (מומי)', number: '634/20', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איסמאיל נ\' מקסימום ובר כל (יורם אלוש)', number: '634/21', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוג\'ו נ\' מקסימום (שטינוביץ)', number: '634/22', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריהוט נ\' מקסימום (פוסטרנק)', number: '634/23', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד איסמאיל נ\' מקסימום והדר הפודים (שטינוביץ)', number: '634/24', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוטסום נ\' מקסימום וניקיון (אהרון הלוי)', number: '634/25', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' מקסימום ומעונות יניב (ועקנין)', number: '634/26', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מברטום נ\' מקסימום (פוסטרנק)', number: '634/27', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רוזנפלד נ\' מקסימום', number: '634/28', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' מקסימום שוק העיר (זרקא)', number: '634/29', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולה נ\' מקסימום ישיבת מיר (פוסטרנק)', number: '634/30', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רוסום נ\' מקסימום', number: '634/31', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רשות האוכלוסין נ\' מקסימום ומתי לוין', number: '634/32', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולו נ\' מקסימום (טדלה)', number: '634/33', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' מקסימום מהדרין מאפים (שטינוביץ)', number: '634/34', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בינצי נ\' מקסימום מעייני הישועה (אולג)', number: '634/35', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סנדר נ\' המסעדה היהודית (אלנקרי)', number: '634/36', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טימה נ\' מקסימום (עופר בן אבי)', number: '634/37', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ידריס נ\' מקסימום (ליאב)', number: '634/38', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' מקסימום ובית התבשיל (שטינוביץ)', number: '634/39', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עלי נ\' מקסימום ובית כנסת הגדול (אורטל)', number: '634/40', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איסמאיל נ\' מקסימום נתיב (בדיחי', number: '634/41', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דבס נ\' מקסימום (דוד ניסני)', number: '634/42', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רזנה נ\' מקסימום (אמיר גז)', number: '634/43', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' מקסימום (אמיר גז)', number: '634/44', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסגנה נ\' מקסימום היכלי מלכות (אמיר גז)', number: '634/45', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' מקסימום (אלנקרי)', number: '634/46', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פישייה נ\' מקסימום הדר הפודים (בר חוה)', number: '634/47', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' מקסימום ומתי (ועקנין)', number: '634/48', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לין נ\' מקסימום (אלנקרי)', number: '634/49', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סולומון נ\' מקסימום (דינה טדלה)תביעה שהוגשה פעמיים לאחר שהראשונה נמחקה', number: '634/50', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לקן נ\' מקסימום נתיב החסד (אלון קפלון)', number: '634/51', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקטל נ\' מקסימום אם וילד (מאי אקרמן)', number: '634/52', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חברות הניקיון נ\' מקסימום', number: '634/53', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חברות הניקיון נ\' וי אל', number: '634/54', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סולומון נ\' מקסימום אור ישראל (בדיחי)', number: '634/55', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קסי נ\' מקסימום מיר (פוסטרנק)', number: '634/56', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רוזנפלד נ\' מקסימום עטרת שלמה (שלומי ולר)', number: '634/57', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קולינס נ\' מקסימום וי אל (שטינוביץ)', number: '634/58', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עומר אדם נ\' מקסימום אחיעזר (רובין)', number: '634/59', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ולרי נ\' מקסימום מעיני הישועה (יעקובוביץ)', number: '634/60', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' מקסימום מיר (פוסטרנק)', number: '634/61', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולנה נ\' מקסימום מעייני הישועה (יעקובי)', number: '634/62', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנזלה נ\' מקסימום (יעקובי)', number: '634/63', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בבכר נ\' מקיסמום מסעדה יהודית (גיא ברנד)', number: '634/64', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קשאי נ\' מקסימום לעלוב (מומי)', number: '634/65', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלבר נ\' מתי לוין (שלום ת"א)', number: '634/66', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רשות האוכלוסין נ\' מקסימום ולוין', number: '634/67', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נאגר נ\' מקסימום (מאירי)', number: '634/68', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מריה נ\' מקסימום ומעייני (יעקובי)', number: '634/69', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולה נ\' מקסימום מעייני (יעקובי)', number: '634/70', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לשכת המסחר נ\' מקסימום', number: '634/71', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוקבגריש נ\' מקסימום וי אל אור ישראל (אלנקרי)', number: '634/72', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ולרי נ\' מקסימום (יעקובי)', number: '634/73', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לודמילה נ\' מקסימום (יעקובי)', number: '634/74', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עומר נ\' מקסימום (שטינוביץ)', number: '634/75', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צגאי נ\' מקסימום (בדיחי)', number: '634/76', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רובל נ\' מקסימום (שטינוביץ)', number: '634/77', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנזלה נ\' מקסימום מעיני (יעקובי)', number: '634/78', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהדי נ\' מקסימום נתיב החסד (שטינוביץ)', number: '634/79', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ירוסלב נ\' מקסימום', number: '634/80', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוקסנה נ\' מקסימום מעונות יניב', number: '634/81', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטו נ\' מקסימום (אהרון הלוי)', number: '634/82', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהה נ\' מקסימום (אהרון הלוי)', number: '634/83', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפואה נ\' מקסימום בני שמחה (טל נוי)', number: '634/84', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אביקו נ\' מקסימום (דינה טדלה) תביעה שהוגשה שלוש פעמים לאחר שפעמיים נמחקה', number: '634/85', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיה נ\' מקסימום מעייני (יעקובי)', number: '634/86', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנה נ\' מקסימום (חנה בן אור)', number: '634/87', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סטפן נ\' מקסימום עטרת שלמה (ועקנין)', number: '634/88', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'באטא נ\' מקסימום (טל נוי)', number: '634/89', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולה נ\' מקסימום מיר (פוסטרנק)', number: '634/90', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טיגביה נ\' מקסימום (עמר)', number: '634/91', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טגן נ\' מקסימום מיר (פוסטרנק)', number: '634/92', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מלמו נ\' וי (דינה טדלה)', number: '634/93', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קונסנטין נ\' מקסימום (צו עשה)', number: '634/94', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מראוי נ\' מקסימום עוגן וי (פוסטרנק)', number: '634/95', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לאנסי נ\' מקסימום (הורביץ)', number: '634/96', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טמז נ\' מקסימום (אולג)', number: '634/97', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צידי נ\' מקסימום (שלום בר)', number: '634/98', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רזנה נ\' מקסימום (עמר)', number: '634/99', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אירינה נ\' מקסימום בני שמחה (יעקובי)', number: '634/100', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נטליה נ\' מקסימום בני שמחה (יעקובי)', number: '634/101', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבז נ\' מקסימום מעיני (ליאב עמר)', number: '634/102', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שרונה נ\' מקסימום בני שמחה (יעוקבי)', number: '634/103', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שרונה נ\' מקסימום מעיני הישועה (יעקובי)', number: '634/104', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ויקטוריה נ\' מקסימום מעיני הישועה (יעקובי)', number: '634/105', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דסטה נ\' מקסימום (אלנקרי)', number: '634/106', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלכסנדר נ\' מקסימום (אלנקרי)', number: '634/107', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גברסלסה נ\' מקסימום (אלנקרי)', number: '634/108', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נטלי נ\' מקסימום מעיני הישועה (יעקובי)', number: '634/109', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולו נ\' מקסימום (דינה טדלה)', number: '634/110', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' מקסימום תורת ארץ ישראל (פוסטרנק)', number: '634/111', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולוקן נ\' מקסימום מעונות יניב (סיגל טרונך) תיק עם גבייה ממזמין שירות', number: '634/112', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אספה נ\' מקסימום מעונות יניב (סיגל טרונך) תיק עם גבייה ממזמין שירות', number: '634/113', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמואל נ\' מקסימום (שלום בר)', number: '634/114', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' מקסימום (אהרן הלוי)', number: '634/115', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גברמריאם נ\' מקסימום (ליאת שרון)', number: '634/116', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זולו נ\' מקסימום (שלום בר)', number: '634/117', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ויקטוריה נ\' מקסימום הדר הפודים (יעקובי)', number: '634/118', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פיטאוי נ\' מקסימום (ליאב עמר)', number: '634/119', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוגלה נ\' מקסימום מעיני (טדלה) התיק נמצא בתיק 1062 מעיני תיק עם גבייה ממזמין שירות', number: '634/120', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ויקטוריה נ\' מקסימום מעיני (יעקובי)', number: '634/121', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיה נ\' מקסימום בני שמחה (יעקובי)', number: '634/122', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ריצארד נ\' מקסימום (ליאב עמר)', number: '634/123', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יחיא נ\' מקסימום איהם נ\' מקסימום מועתם נ\' מקסימום נגאר נ\' מקסימום אחמד נ\' מקסימום אחמד נ\' מקסימום', number: '634/124', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מרי נ\' וי + אם וילד (אלבוים) צו לקבלת תלושי שכר', number: '634/125', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ג\'וסה נ\' כלניות (וידהורן)', number: '634/126', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בלינה נ\' מקסימום (אהרן הלוי)', number: '634/127', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נגאר נ\' מקסימום (מאירי)', number: '634/128', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חמד נ\' מקסימום (מאירי)', number: '634/129', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלכסנדר נ\' מקסימום נתיב החסד (יעקובי)', number: '634/130', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקליט נ\' מקסימום הדר הפודים (שחר דור)', number: '634/132', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקליט נ\' מקסימום נתיב החסד (שחר דור)', number: '634/133', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד נ\' מקסימום מתי לוין (ליאת שרון)', number: '634/134', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דניאל נ\' מקסימום מסעדה יהודית שובע (פוסטרנק)', number: '634/135', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גיה נ\' מקסימום מעיני (יורם אלוש) תיק עם גבייה ממזמין שירות', number: '634/136', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסגן נ\' מקסימום (טדלה)', number: '634/137', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שישאי נ\' מקסימום (יעקובוביץ)', number: '634/138', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סטפן נ\' מקסימום (יורם אלוש)', number: '634/139', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הלימה נ\' וי מתי אחזקות גן בעיר (שלום בר)', number: '634/140', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גטצ\'ו נ\' האדמור מסאסוב (טדלה)', number: '634/141', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולגה נ\' מקסימום (גיל חלי)', number: '634/142', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'היילו נ\' מקסימום (אריה אביטן)', number: '634/143', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלמר נ\' מקסימום (גירשוביץ)', number: '634/144', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד פואז נ\' מקסימום (רובין)', number: '634/145', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מחמוד נ\' מקסימום (רובין)', number: '634/146', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוטסום נ\' מקסימום מיר (שם טוב) תיק עם חיוב מזמין שירות', number: '634/147', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' וי (ליאב עמר)', number: '634/148', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהה נ\' מקסימום (פוסטרנק)', number: '634/149', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולסני נ\' מקסימום אי פי אי חניה (שם טוב)', number: '634/150', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד נ\' מקסימום קשת גיבורים (מאירי)', number: '634/151', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מחמוד נ\' מקסימום קשת גיבורים (מאירי)', number: '634/152', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סטפן נ\' מקסימום (שם טוב)', number: '634/153', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טדרוס נ\' מיר (אריה אביטן)', number: '634/154', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מרי נ\' וי + אם וילד (אלבוים)', number: '634/155', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קולומבוס נ\' וי + מקסימום + פונוביז', number: '634/156', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פליקס נ\' מקסימום מעיני (ליאב)', number: '634/157', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ארגון חברות הניקיון נ\' מקסימום', number: '634/158', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברקת נ\' מקסימום וי (מומי)', number: '634/159', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לודה נ\' מקסימום (יעקובי)', number: '634/160', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קארינה נ\' וי אושר עד (זורבסקי) פאולינה נ\' וי אושר עד', number: '634/161', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסאתו נ\' מתי אחזקות (כרמלי)', number: '634/162', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מילקה נ\' מקסימום מיר (פוסטרנק)', number: '634/163', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוטסום נ\' וי ארחות תורה (הלוי)', number: '634/164', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הרון עבדאללה מגיד נ\' פרוג\'קט פרו', number: '635', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קוברום נ\' א.ס אבטחה מקצועית (תביעת חוב) + רדאר פרש מרקט', number: '636', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד נ\' האופה מבגדד', number: '637', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זראי נ\' א.ס אבטחה מקצועית (תביעת חוב)', number: '638', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' א.ס אבטחה מקצועית (תביעת חוב)', number: '639', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סיימון נ\' לימון אירועים', number: '640', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מראווי נ\' א.ס אבטחה מקצועית (תביעת חוב)', number: '641', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יקוב נ\' אחד מעל כולם', number: '642', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד פאדול נ\' א. מוקד אבטחה', number: '643', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אבסרה נ\' יערית חן פרוייקטים', number: '644', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יעקב נ\' אריאל גבאי קידוחים', number: '645', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בניים נ\' ג\'וב פלייס', number: '646', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עומר נ\' רדאר גיוס והשמה', number: '647', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חיסאם ג\'וברה דקאם נ\' שיש וייס', number: '648', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'באשיר נ\' אלקטרה', number: '649', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ללי נ\' טוטל קלין', number: '650', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספמיקל נ\' סקוצמן', number: '651', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' לאמור', number: '652', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גד ויטמן נ\' חינוך ומסורה', number: '653', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דניאל ויטמן נ\' חינוך ומסורה', number: '654', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רפאל ויטמן נ\' חינוך ומסורה', number: '655', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריהוט נ\' אי טי אקסלנס ויוחננוף', number: '656', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמסון נ\' בישולים ותבשילים', number: '657', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נסניט נ\' ר.מ. קלינר', number: '658', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אבובקר נ\' אופוס', number: '659', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ריסטום נ\' אי טי ניהול', number: '660', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איסמעיל מוסה נ\' אופוס', number: '661', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אזזה נ\' דמרי', number: '662', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בר עזר נ\' עוז קרמיקה', number: '663', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם מוחמד נ\' אפגרייד ודניה סיבוס', number: '664', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוקסנה נ\' עטרת רימונים', number: '665', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מדנה נ\' ז.ר.ו.ע ואלקטרה', number: '666', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מייקל נ\' טנדר לאבינג קאר וזרוע הזהב', number: '667', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אמלסט נ\' אמון', number: '668', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאללה נ\' שהם', number: '669', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רפסון', number: '670', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלי נ\' סמרט קלין', number: '671', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברקי נ\' זדקה', number: '672', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולו נ\' בשר הלוי', number: '673', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' עמל בשרון', number: '674', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שאויט נ\' ברקת', number: '675', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סולומון נ\' השקדיה', number: '676', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבן אראיה נ\' נווה שלו', number: '677', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפרם נ\' סלע יזמות', number: '678', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' סלע יזמות', number: '679', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' גן סיפור', number: '680', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סאחורי אס.פי. פיש האוס', number: '681', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מלס נ\' זרוע הזהב ומרגוע', number: '682', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קופלום נ\' זרוע הזהב', number: '683', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פליגמן נ\' חזון נחום', number: '684', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קסטה נ\' דוד אל', number: '685', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' גפניקה', number: '686', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוסה נ\' קטה חברה לבנייה', number: '687', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טרחס נ\' זקיר גוברמן', number: '688', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עמיהוד נ\' דרכי נעם', number: '689', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריזגר נ\' ארבל', number: '690', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' דוד אל', number: '691', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספנס נ\' שחר מולה', number: '692', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נגסי נ\' מעייני הישועה', number: '693', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לודמילה נ\' אופוס ופאלאס (אולג סלבוטסקי)', number: '694/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלמס נ\' אופוס ולאמור (דושי)', number: '694/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ג\'קוב נ\' אופוס (יעקובי)', number: '694/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מבריט נ\' אופוס ורומח (רובין)', number: '694/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איאנה נ\' אופוס ס.א.מ שרותי בריאות וסעד (ליאב)', number: '694/5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' אופוס (ליאב)', number: '694/6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בוסרה נ\' אופוס (שטינוביץ)', number: '694/7', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טינטין נ\' אופוס (יעקובי)', number: '694/8', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' אופוס (אמיר גז)', number: '694/9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אברה נ\' אופוס (יניב)', number: '694/10', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רשן נ\' אופוס (עופר בן אבי)', number: '694/11', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוגוס נ\' אופוס (עופר בן אבי)', number: '694/12', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ללה נ\' רומח אופוס (ליאב)', number: '694/13', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלם נ\' אופוס (אמיר גז)', number: '694/14', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נטיה נ\' אופוס רומח (ליאב)', number: '694/15', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסגודום נ\' אופוס קלין דרס (נרקיס בדיחי)', number: '694/16', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספלם נ\' אופוס מבנים טנדר לאבינג קאר (אלון קפלון)', number: '694/17', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לטינה נ\' אופוס רומח (סרוסי)', number: '694/18', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בודזה נ\' אופוס רומח (ליאב)', number: '694/19', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנגוסום נ\' אופוס (פוסטרנק)', number: '694/20', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נגסי נ\' אופוס רומח', number: '694/21', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פטרי נ\' אופוס רומח (תומר מור)', number: '694/22', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מלס נ\' אופוס (ועקנין)', number: '694/23', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' אופוס טנדר לאבינג קאר', number: '694/24', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רוזה נ\' אופוס רומח (ליאב)', number: '694/25', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' אופוס רומח (עמיר חכם)', number: '694/26', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בולוז נ\' אופוס (רובין)', number: '694/27', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאלה נ\' אופוס (שטינוביץ)', number: '694/28', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמיאל נ\' אופוס הבורקס שלי', number: '694/29', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוגוס נ\' אופוס אופה מבגדד צהלה (חכם)', number: '694/30', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנו נ\' אופוס (ליאב)', number: '694/31', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמרה נ\' אופוס בלדי (יניב)', number: '694/32', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ללטי נ\' אופוס (יונית סגל)', number: '694/33', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפורקי נ\' אופוס (פוסטרנק)', number: '694/34', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הלן נ\' אופוס (אמיר גז)', number: '694/35', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלם נ\' אופוס (פוסטרנק)', number: '694/36', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מייקל נ\' אופוס רומח (שחר ברנשטיין)', number: '694/37', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גויטום נ\' אופוס בית פנחס (ועקנין)', number: '694/38', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נינו נ\' אופוס רומח ((ליאב)', number: '694/39', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוסא נ\' אופוס שופרסל (שטינוביץ)', number: '694/40', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יקוב עלי נ\' אופוס מרדכי וולך', number: '694/41', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צימידאק נ\' אופוס (טדלה)', number: '694/42', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דיאנה נ\' אופוס רומח (אולג)', number: '694/43', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וסן נ\' רומח אופוס (תומר מור)', number: '694/44', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מבריט נ\' אופוס (סיגל טרונך)', number: '694/45', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קופלום נ\' אופוס (אמיר גז)', number: '694/46', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קטונה נ\' אופוס רומח (יעקובי)', number: '694/47', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דבי נ\' אופוס רומח (תומר מור)', number: '694/48', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קטבן נ\' אופוס רומח (גירשוביץ)', number: '694/49', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולסוב נ\' אופוס (יעקובי)', number: '694/50', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולגה נ\' אופוס (יעקובי)', number: '694/51', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גיאורגי נ\' אופוס (יעקובי)', number: '694/52', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוגוס נ\' אופוס ישראל מלמד (שחר דור)', number: '694/53', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טינטין נ\' אופוס רומח (יעקובי)', number: '694/54', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וויני נ\' אופוס (ליאת שרון)', number: '694/55', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אירקלי נ\' אופוס (יעקובי)', number: '694/56', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מונטג נ\' אופוס (דושי)', number: '694/57', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קקבר נ\' אופוס (אולג)', number: '694/58', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קדאויט נ\' אופוס (ליאור סגל)', number: '694/59', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טסגן נ\' אופוס קלין דרס (אורטל דרקסלר)', number: '694/60', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קג\'יה נ\' אופוס רומח מגדלי התאומים (אולג)', number: '694/61', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' אופוס (רובין)', number: '694/62', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רוסום נ\' אופוס (רובין)', number: '694/63', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בגורי נ\' אופוס (גירשוביץ)', number: '694/64', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זזה נ\' אופוס אמות (אולג)', number: '694/65', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אזיב נ\' אופוס רומח (דושי)', number: '694/66', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גברמדין נ\' אופוס רומח (רובין)', number: '694/67', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טרחס נ\' אופוס גילעד (ועקנין)', number: '694/68', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוואן נ\' אופוס (דינה טדלה)', number: '694/69', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מאיה נ\' אופוס רומח (רובין)', number: '694/70', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מארי נ\' אופוס (רובין)', number: '694/71', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קופי נ\' אופוס (צ\'ולפייב)', number: '694/72', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מזה נ\' אופוס (אמיר גז)', number: '694/73', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גלגולבה נ\' אופוס רומח (גירשוביץ)', number: '694/74', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אופוקו נ\' אופוס רומח (ועקנין)', number: '694/75', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיה נ\' אופוס רומח (אולג)', number: '694/76', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' אופוס שופרסל (ועקנין)', number: '694/77', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אברהים נ\' אופוס קונדיטוריית רוני (שטינוביץ)', number: '694/78', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיסן נ\' אופוס (יעקובוביץ)', number: '694/79', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מגה נ\' אופוס טנדר (ליאב עמר)', number: '694/80', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גברמריאם נ\' אופוס רומח (ליאב)', number: '694/81', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהה נ\' אופוס גילעד (ועקנין)', number: '694/82', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רויני נ\' אופוס רומח (גירשוביץ)', number: '694/83', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' אופוס רהיטי גבאי (עדי מני)', number: '694/84', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קיקישוילי נ\' אופוס (יעקובי)', number: '694/85', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיסן נ\' אופוס (יעקובוביץ)', number: '694/86', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טסגט נ\' אופס איתן שמיר (שטינוביץ)', number: '694/87', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפורקי נ\' אופוס (שטינוביץ)', number: '694/88', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' אופוס (שחר דור)', number: '694/89', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מדין נ\' אופוס (דינה טדלה)', number: '694/90', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' אופוס (ליאב)', number: '694/91', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קבדה נ\' אופוס טנדר (ליאת שרון)', number: '694/92', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טרחס נ\' ישראל מלמד (מונהד מרעי)', number: '694/93', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'משכנות יעקב', number: '695', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלי איצקוביץ נ\' ברק דנן', number: '697', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איבראים נ\' נצח ישראל', number: '698', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' א.ס אבטחה מקצועית', number: '699', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'למלם נ\' א. ש עובדים', number: '700', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' ויזניץ', number: '701', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרמאי נ\' א. ש עובדים', number: '702', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלט נ\' מגה ואח\'', number: '703', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאללה נ\' מרכז הפיתה', number: '704', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איסמאיל נ\' ברק גדעון', number: '705', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' בית הדקל', number: '706', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מראוי נ\' א. ש עובדים', number: '707', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'כל כיפוף', number: '708', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זראי נ\' רינת', number: '709', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' בית הדקל', number: '710', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גידה נ\' וניליק', number: '711', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לול נ\' שיא משאבים וכפר סבא', number: '712', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דסטה נ\' דב שמירה', number: '713', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוטסום נ\' א.ס אבטחה', number: '714', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבן נ\' נווה שלו', number: '715', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לוגיסטיקה נ\' מעייני הישועה', number: '716', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טיקבו נ\' א.ס אבטחה (שגב)', number: '717', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסקב נ\' רויאל', number: '718', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסמט נ\' דרין תנופה', number: '719', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בביקר נ\' פרטוש צמח', number: '720', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טרחס נ\' עוז', number: '721', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בנצ\'י נ\' קמה שחקים ואח\'', number: '722', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוקבאי נ\' עמל בשרון אובקאי נ\' אלי', number: '723', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זוודה נ\' איציק', number: '724', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' פרפקטו', number: '725', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קוברום נ\' סמל', number: '726', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דניאל נ\' פוליטיב', number: '727', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פרדה נ\' אחד מעל כולם', number: '728', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פרדה נ\' א.י אוריאל', number: '729', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפרם נ\' רביביה וסיליה', number: '730', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טרחס נ\' טוטל קלין (אמיר גז)', number: '731', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פטאוויט נ\' נווה שלו', number: '732', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חנה נ\' מלון הים האדום', number: '733', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נטו נ\' בסט וורק', number: '734', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוסנה נ\' סנטוס קפה ואח\'', number: '735', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפרם נ\' רדאר פרש מרקט', number: '736', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלה נ\' ארסל קלין שירותים', number: '737', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סולומון נ\' נווה שלו', number: '738', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ג\'ימי נ\' אבטחה מבצעית קניון אבנת', number: '739', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחד מעל כולם עובדי מיר', number: '740', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יפונה איטה', number: '741', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד נ\' טושקט', number: '742', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טרחס נ\' קמה שחקים (נמצא בתיק 867)', number: '743', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עוגן ניהול ואחזקות', number: '744', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחד מעל כולם עובדי בית מלכה', number: '745', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הטוב והמיטיב', number: '746', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסלה נ\' ישיבת מיר', number: '747/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טמנגו נ\' ישיבת מיר', number: '747/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימנה נ\' ישיבת מיר', number: '747/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בירטו נ\' ישיבת מיר', number: '747/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זראי נ\' מיר ומלכה ניקיון', number: '747/5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספו נ\' מיר', number: '747/6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוטסום נ\' מקסימום מיר', number: '747/6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' סיטי מרקט', number: '748', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחד מעל כולם - דרך ארי', number: '749', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נתנאל קדמיה נ\' דחס שרותים', number: '750', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוסמן נ\' האופה מבגדד', number: '751', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחד מעל כולם כללי (לא קשור לארי)', number: '752', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צגאי נ\' מנהלים נכון', number: '753', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' קפלן את לוי', number: '754', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מרכז ישועות ויז\'ניץ', number: '755', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' נוגוטין', number: '756', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פילמון נ\' רדאר פרש מרקט', number: '757', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסקב נ\' יינות ביתן', number: '758', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוקבמריאם נ\' רדאר פרש מקרט', number: '759', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דוד קצב', number: '760', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' שוק מהדרין', number: '761', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמיאל נ\' לנדוור', number: '762', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דסבלה נ\' וניליק', number: '763', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספה נ\' המרכז הרפואי', number: '764', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אמרה נ\' ויזניץ', number: '765', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יוריה לבן סמדר שרמן', number: '766', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיסגנה נ\' מידו', number: '767', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' וניליק', number: '768', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' אושר עד', number: '769', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יוהנה נ\' טוטל קלין רלקס הנדסה', number: '770', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פיטאוי נ\' יפת', number: '771', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יעקב חן נ\' שחלב', number: '772', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ד"ר קובי בר נ\' מעיני הישועה', number: '773', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אבל נ\' מסעדת ג\'קי', number: '774', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עזרא נ\' משאב נדיר ואפיקים', number: '775', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' נווה שלו', number: '776', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנג\'לו נ\' רדאר', number: '777', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלה נ\' ישיבת כנסת מרדכי והרב בורר', number: '778', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שישאי נ\' רובין שפע בשר', number: '779', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מראוי נ\' מסעדת קרנף', number: '780', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גויטום נ\' דב שמירה', number: '781', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלה נ\' עדנן', number: '782', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פישייה (וניליק)', number: '783', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עומר נ\' ש. אלרוי בניה', number: '784', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאלה נ\' ש. אלרוי בניה', number: '785', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רובל נ\' גל און', number: '786', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רובל נ\' תפארת למשה', number: '787', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסגנה נ\' דון פרדו', number: '788', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרטב נ\' לילך אחזקות', number: '789', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' וניליק', number: '790', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קיפלו נ\' אקסטרים', number: '791', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' לין ואח\'', number: '792', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קפיל נ\' ארבל', number: '793', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איסולה נ\' לווינשטיין', number: '794', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' טנדר לאבינג קאר', number: '795/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זעקיק נ\' טנדר לאבינג קאר', number: '795/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שריד נ\' טנדר לאבינג קאר', number: '795/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טפרי נ\' טנדר לאבינג קאר', number: '795/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לוודני נ\' טנדר לאבינג קאר', number: '795/5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קבדה נ\' טנדר לאבינג קאר', number: '795/6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידן נ\' טנדר לאבינג קאר', number: '795/7', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' טנדר', number: '795/8', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טינה נ\' טנדר', number: '795/9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רנדיר נ\' טנדר', number: '795/10', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צגאי נ\' טנדר', number: '795/11', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זנה נ\' טנדר', number: '795/12', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לצוק נ\' טנדר', number: '795/13', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלכסנדר נ\' טנדר', number: '795/14', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטגריש נ\' טנדר', number: '795/15', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' טנדר', number: '795/16', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פילמון נ\' טנדר', number: '795/17', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קסנט נ\' טנדר', number: '795/18', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ולדימיר נ\' טנדר', number: '795/19', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קלידה נ\' טנדר', number: '795/20', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רנדיר נ\' טנדר', number: '795/21', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בלטה נ\' טנדר', number: '795/22', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סידיקל נ\' טנדר', number: '795/23', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רזניק נ\' טנדר', number: '795/24', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמיון נ\' טנדר', number: '795/25', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אווז נ\' טנדר', number: '795/26', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מלי כהן נ\' טנדר', number: '795/27', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עלי נ\' טנדר', number: '795/28', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסמורום נ\' טנדר', number: '795/29', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חמאד נ\' טנדר', number: '795/30', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חפש נ\' טנדר', number: '795/31', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טומוזגי נ\' וניליק', number: '796', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלי נ\' המרכז הרפואי', number: '797', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קסטה נ\' וניליק קסטה נ\' התרנגול הכחול', number: '798', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' המרכז הרפואי', number: '800', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טדרוס נ\' השקדיה', number: '801', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מנגס נ\' המרכז הרפואי', number: '802', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זינוואי נ\' המרכז הרפואי', number: '803', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ביניים נ\' מגה ביניים נ\' יואל ומגה ביניים נ\' ויקטורי', number: '804', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גוס\'ל נ\' רוטנברג', number: '805', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פרזגי נ\' מידו', number: '806', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אמאן נ\' המרכז הרפואי', number: '807', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אברה נ\' לאנצ טיים', number: '808', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מראוי נ\' יגאל מסיקה', number: '809', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמר נ\' מבצע דקל 17', number: '810', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צגה נ\' המרכז הרפואי', number: '811', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אמינה נ\' מאפה נאמן', number: '812', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שישאי נ\' אחלה', number: '813', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'למלם נ\' גיל נעם נעים', number: '814', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסתר נ\' הדקל', number: '815', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בטס נ\' טוטל קלין', number: '816', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סולביובה נ\' טוטל קלין', number: '817', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאלעזים עותמאן אדם נ\' פרוג\'קט פרו', number: '818', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פנחס נ\' שחלב', number: '819', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיכל. ש ניהול פרויקטים והפקות', number: '820', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גויטום נ\' פיט אין (מאי אקרמן)', number: '820-1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספמיקל נ\' כושר כפר סבא (מומי זרקא)', number: '820-2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסיאס נ\' כושר קריית אתא (שחר דור)', number: '820-3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טימה נ\' כושר באר שבע (עופר בן אבי)', number: '820-4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מדנה נ\' כושר קריית אתא (דניאל ועקנין)', number: '820-5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בלאי נ\' אור דוד (מומי זרקא)', number: '820-6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוטסום נ\' אור דוד (מומי זרקא)', number: '820-7', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בלאי נ\' ספייס (מומי זרקא)', number: '820-8', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' קאנטרי כפר סבא (שחר דור)', number: '820-9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' כושר ירקון ואח\' (מומי זרקא)', number: '820-10', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קלטה נ\' יגאל אלון (דושי)', number: '820-11', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרנסה נ\' כושר כפר סבא (יעקובי)', number: '820-12', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסנה נ\' כושר עזריאלי (ועקנין)', number: '820-13', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוקבאי נ\' אור דוד (מומי זרקא)', number: '820-14', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שמבל נ\' כושר עזריאלי (ועקנין)', number: '820-15', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צגאב נ\' קנטרי כפר סבא (פוסטרנק)', number: '820-16', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גויטום נ\' קפית', number: '821', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספגריש נ\' פוד קורט טספגריש נ\' תמיר שמעוני', number: '822', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רומה נ\' מידו', number: '823', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוסמן נ\' וול דאן', number: '824', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' המרכז הרפואי', number: '825', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בורה נ\' אסף פרי', number: '826', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ריטסום נ\' סיטי מרקט', number: '827', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פשזן נ\' גי\'רף', number: '828', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' ארואל סחר ואחסנה', number: '829', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גורג נ\' מגה', number: '830', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברקת נ\' ר.ג.א', number: '831', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נסניט נ\' קלינקס', number: '832', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנגסום נ\' נוה שלו', number: '833', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספגריש נ\' ג\'ירף', number: '833', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסברה נ\' גיל נעם', number: '834', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בני נ\' פרופיט ועמיקם', number: '835', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיכאל נ\' רובין שפע בשר', number: '836', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'באשיר נ\' אלקטרה וזיאד', number: '837', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' לנדוור', number: '838', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנדמריאם נ\' ארבל', number: '839', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאללה נ\' פרוג\'קט פרו', number: '840', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספה נ\' פוד קורט', number: '841', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרמאי נ\' מוצה', number: '842', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נגסי נ\' אגאדיר', number: '843', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גאפר נ\' יהלום גיוס והשמה גאפר נ\' סמרט קלין', number: '844', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שרביט נ\' שלזינגר', number: '845', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בביקר נ\' אלקטרה וזיאד', number: '846', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנגסום נ\' טוטל קלין אידיאה (ועקנין)', number: '847', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' מאיה תברואה', number: '848', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יאסר נ\' אלדג', number: '849', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טבב נ\' טוטל קלין (אמיר גז)', number: '850', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימנה נ\' טוטל קלין (אמיר גז)', number: '851', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אמנואל נ\' טוטל קלין (אמיר גז)', number: '852', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וויני נ\' טוטל קלין (אמיר גז)', number: '853', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלם נ\' פוד קורט', number: '854', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יעקוב נ\' רדאר פרשמרקט', number: '855', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יוהנס נ\' ניהול', number: '856', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עומר נ\' פוליטיב', number: '857', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'תיק חדש תביעת חוב אופוס', number: '858', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שפילמן נ\' פיק', number: '859', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאלם נ\' מנהלים נכון', number: '860', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גי\'מי נ\' אבטחה מקצועית', number: '861', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' גומבה', number: '862', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבד אלחמיד נ\' מפות איכות', number: '863', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבד אלחלים נ\' מפות איכות', number: '864', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' מאפה נאמן', number: '865', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפרם נ\' מעדני גורמה', number: '866', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טרחס נ\' קמה שחקים (תביעת חוב)', number: '867', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'משה קליין', number: '868', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרמאי נ\' לילך', number: '869', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלה נ\' אלקטרה וזיאד', number: '870', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלצקי נ\' סנטר כל', number: '871', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זריט נ\' נעמי דיין', number: '872', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' דור 2000', number: '873', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספלה נ\' טוטל קלין', number: '874', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסגנה נ\' שחר מולה', number: '875', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סאויט נ\' המרכז הרפואי', number: '876', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם', number: '877', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קבדה נ\' טעמית', number: '878', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד עבדלעזים', number: '879', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריהוט נ\' נוף המושבה גבירהוט נ\' זרוע הזהב', number: '880', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפרם נ\' גיא ספירשטיין אפרם נ\' אמון ניקיון', number: '881', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גברמדין נ\' הזהב', number: '882', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספמריאם נ\' קורל פתרונות ומגדלי שקל', number: '883', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זרום נ\' קיי טסורו', number: '884', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'משה פייגנבוים נ\' אולמי דונולו', number: '885', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ארון נ\' אלדן והודיס', number: '886', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם חסן נ\' אדיסן ורמי לוי', number: '887', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גויטום נ\' קשת הרימון', number: '888', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שוקרלה חביב נ\' פרוג\'קט פרו', number: '889', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסמרם נ\' מבנים', number: '890', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הרון נ\' פרוג\'קט פרו', number: '891', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלומון נ\' זך נדיר אחזקות', number: '892', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוסא נ\' פרוג\'קט פרו', number: '893', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' גא פנורמה צפון וגיל קטה', number: '894', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' דניה סיבוס', number: '895', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' קלין סטאר', number: '896', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חסיב נ\' פרוגקט פרו', number: '897', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מנדי רובין ת.ז. 206165946 ו/או חיים של אהבת תורה', number: '898', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פירוי נ\' זוהר נהול', number: '899', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' קלדרון וסופר יש', number: '900', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נטלי טל נ\' גל דהן', number: '901', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לטינה נ\' טוטל קלין', number: '902', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הדגו קוקוב נ\' ביסקוטי', number: '903', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יוסב נ\' שוק מהדרין', number: '904', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פילמון נ\' עמי', number: '905', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קשאי נ\' ברטן', number: '906', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דסטה נ\' יואל וסופר ברכת', number: '907', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' זדקה', number: '908', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' זדקה', number: '909', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' סופר אדוארד', number: '910', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמדפדל מוחמד (תאונת עבודה)', number: '911', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיקלה נ\' ישיבת ויזניץ', number: '912', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאלם נ\' שופרסל', number: '913', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אברם נ\' גל שבתאי', number: '914', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' פוליטיב', number: '915', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברקי נ\' שופרסל רויאל', number: '916', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבן נ\' זרוע הזהב', number: '917', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולו נ\' בנדיקט', number: '918', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בבלום נ\' ישיבת ויזניץ', number: '919', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' קלין סטאר', number: '920', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסמרה נ\' צוות 3 אסמרה נ\' רדאר', number: '921', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' אופנועי מטלון', number: '922', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' שי למב שופרסל הגוס נ\' בית אבות שלמה המלך', number: '923', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' רוני מזרחי', number: '924', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסגנה נ\' גוד פיצרייה', number: '925', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וולדיס נ\' מרגלית חזן וסופר פארם וולדיס נ\' מבנים וולדיס נ\' רויאל קלין', number: '926', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'תביעות חוב אכא כח אדם', number: '927', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אזב', number: '928', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אידריס נ\' דין קלייה ושיווק', number: '929', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פרוז נ\' מנהלים נכון', number: '930', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בחרי נ\' לילך', number: '931', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדנום נ\' רדאר', number: '932', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימנה נ\' ישיבת ויזניץ', number: '933', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נסניט נ\' נאות המושבה', number: '934', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאללה נ\' היחידה למשאבי אנוש', number: '935', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טימה נ\' משאב נדיר', number: '936', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפורקי נ\' סלע ביצוע', number: '937', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוטסום נ\' קשת הרימון', number: '938', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמירה נ\' טוטל קלין', number: '939', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אמבייה נ\' רדאר', number: '940', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יעקוב נ\' לילך', number: '941', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנגוסום נ\' א.ר.א.ג', number: '942', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' טוטל קלין', number: '943', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיסגנה נ\' אמון', number: '944', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוסא נ\' קפה ביתא סביון', number: '945', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קזולה', number: '946', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נגש נ\' אם טי ליאן', number: '947', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יוהנס נ\' אדן ניהול', number: '948', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדרו נ\' רדאר', number: '949', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ראצווה נ\' אם טי ליאן', number: '949', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' בית הדקל', number: '950', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוואט נ\' בנדיקט אוואט י.ב. שיא משאבים', number: '951', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זראי נ\' שיא משאבים (קפלן את לוי)', number: '952', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פשזן נ\' רועין בן נתן אלינור קופלר', number: '953', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריהוט נ\' הדסים גבריהוט נ\' נווה שלו', number: '954', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'היילזגי נ\' מוזס', number: '955', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרמאי נ\' הסושיה', number: '956', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפי נ\' קנטרי גני תקווה', number: '957', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מברטום נ\' נ.ג. עוגן ניהול מקסימום ואח\'', number: '958', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד נ\' סטופ מרקט', number: '959', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאללה נ\' סילקו', number: '960', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' פטריק', number: '961', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זראי נ\' מ.ב. ניהול אחזקה', number: '962', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוואט נ\' מאיה שרותי תברואה', number: '963', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פקרה נ\' גאי צמר', number: '964', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וולדו נ\' אורלי לשם', number: '965', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בביקר נ\' אלבר', number: '966', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטאב נ\' רויאל ומגדלי הים התיכון', number: '967', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' אלדג', number: '968', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ירגה נ\' לילך', number: '969', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חסן נ\' אושר עד', number: '970', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פרויני נ\' ינגו', number: '971', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בני נ\' מגה', number: '972', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מריה', number: '973', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אביוט נ\' אתרי מאור הרמוניה', number: '974', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זראי תאונת עבודה + רדאר', number: '975', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סימרט נ\' בית מנוחה לזקנים', number: '976', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' סלע יזמות', number: '977', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עדן נ\' בית אבות רקאנטי', number: '978', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלם נ\' אדן ניהול', number: '979', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' אוריאל ואושר עד', number: '980', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קמאל נ\' קפה גן סיפור', number: '981', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גידה', number: '982', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברכה זיסוביץ', number: '983', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מימוזה נ\' כושר ירקון', number: '984', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' המשרד הנקי', number: '985', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עומר נ\' רוסלן', number: '986', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סולימאן נ\' רוסלן', number: '987', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צגאב נ\' טוטל קלין', number: '988', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלה נ\' א.ג ייעוץ', number: '989', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מרשל נ\' אלריה איטום מרשל נ\' אדם טים', number: '990', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וולדיס נ\' אתרי מאור', number: '991', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איסמאיל נ\' אלדג', number: '992', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדריס נ\' ספיר בריכות', number: '993', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיזן נ\' וסופר ברכת', number: '994', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' רינגלר', number: '995', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלסה נ\' פרח השקד רקלט אחזקות', number: '996', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בניים נ\' מאיה שרותי תברואה', number: '997', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד אדם נ\' תומר שרעבי מוחמד אדם נ\' סלע יזמות', number: '998', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חנה נ\' הדקל', number: '999', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' המרכז הרפואי', number: '1000', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פילמון נ\' בנדיקט', number: '1001', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לול נ\' אוריאל ואושר עד', number: '1002', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ליאנה נ\' כושר פלורנטין', number: '1003', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פרינס נ\' חיים פרנקל השקעות', number: '1004', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וייני נ\' הצוות כח אדם', number: '1005', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדי נ\' גולף', number: '1006', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרמסקל נ\' טוטל קלין', number: '1007', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מסגנט נ\' טוטל קלין', number: '1008', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנגסום נ\' אתרי מאור', number: '1009', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זרסני נ\' קפלן את לוי', number: '1010', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הדס נ\' נונו מימי', number: '1011', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סאדיק נ\' קלדרון', number: '1012', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוסמן נ\' רדאר', number: '1013', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איברהים נ\' דין קלייה', number: '1014', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמרה נ\' פוליטיב', number: '1015', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קירוס נ\' מנהלים נכון', number: '1016', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מייקל נ\' הברקות בנדלן', number: '1017', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נינו נ\' ספייס מועדוני כושר', number: '1018', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפרם נ\' פוליטיב אפרם נ\' תיש יזמות', number: '1019', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טארק נ\' גחלים והדסים גריל ישראלי', number: '1020', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסתר נ\' מנהלים נכון', number: '1021', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'היילזגי נ\' דו איט ניהול', number: '1022', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יוהנס נ\' המרכז הרפואי', number: '1023', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שישאי נ\' רדאר', number: '1024', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קוברום נ\' מבנים', number: '1025', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גידה נ\' ספייס', number: '1026', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברכת נפתלי', number: '1027', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' אריזונה 51 (אגאדיר)', number: '1028', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טומזגי נ\' מקסיקנה', number: '1029', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' הילטון', number: '1030', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אברם נ\' נאור ניסים', number: '1031', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' נאור ניסים', number: '1032', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אליסה נ\' רויאל', number: '1033', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אמבייה נ\' רויאל', number: '1034', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימבה נ\' נהרי', number: '1035', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איברהים נ\' אמון ניקיון', number: '1036', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גורג נ\' פוליטיב דב שמירה', number: '1037', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יעל ורד', number: '1038', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נדיה נ\' עלה (יעקובי)', number: '1039/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הלנה נ\' עלה (שלום בר)', number: '1039/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נונה נ\' עלה (גירשוביץ)', number: '1039/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלה נ\' אוריאל אושר עד טקלה נ\' גורמה', number: '1040', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מיסגנה נ\' גיא ספירשטיין', number: '1041', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' אריזונה (אגאדיר)', number: '1042', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסמרה נ\' נונו מימי', number: '1043', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קובי נ\' אגאדיר', number: '1044', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ציפורה גייר', number: '1045', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' נתיב הדעת', number: '1046', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אברה נ\' נתיב הדעת', number: '1047', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יקוב נ\' סופר דהן', number: '1048', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קרלוס נ\' פוליטיב דב שמירה', number: '1049', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אפורקי נ\' רויאל', number: '1050', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' יינות ביתן', number: '1051', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולו נ\' אגאדיר', number: '1052', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ווסאם נ\' הלפגוט', number: '1053/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עסאם נ\' הלפגוט', number: '1053/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מברטום נ\' יוחננוף', number: '1054', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ירגה נ\' רדאר', number: '1055', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דאויט נ\' תורת חסד בגליל', number: '1056', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טטינה נ\' הדקל', number: '1057', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מברטום נ\' קלין סטאר ועיריית יבנה', number: '1058', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פטימר נ\' הצוות', number: '1059', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימנה נ\' אושר עד ימנה נ\' קממ ימנה נ\' אמון', number: '1060', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עומר נ\' איוב מחמוד', number: '1061', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נ\' מעיני (תיק שכולל גם העסקה ישירה סוכם שבחיוב כספי)', number: '1062', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גברמסקל נ\' ספייס (מסדה)', number: '1063', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גויטום', number: '1064', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דניאל נ\' סיטי מרקט', number: '1065', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קופולם נ\' סיטי מרקט', number: '1066', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קוברום נ\' אוליביה', number: '1067', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' ג\'ירף', number: '1068', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' אוליביה', number: '1069', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' נתיב הדעת', number: '1070', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'למלם נ\' אייל אחזקות', number: '1071', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בריו נ\' באר התלמוד', number: '1072', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ירבה נ\' בעלזא (ועקנין)', number: '1073', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' בעלזא (נאור חזות)', number: '1074', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מנגסטאב נ\' שוק מהדרין', number: '1075', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלאי נ\' לילך הפום נ\' לילך הבן נ\' לילך אוקבאי נ\' לילך יקוב נ\' לילך קוקו טיה סאדיק נ\' לילך אדם עלי', number: '1076', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פרדה נ\' משכנות', number: '1077', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פרדה נ\' דוד גולדמן פרדה נ\' ברכת אפרים', number: '1078', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גויזמן נ\' תקוע', number: '1079', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אריאל שוב נ\' ביטוח לאומי', number: '1080', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פילמון נ\' קולקטיב', number: '1081', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמואל נ\' ספייס', number: '1082', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'תורגמן נ\' תורגמן', number: '1083', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'דבסאי נ\' זדקה', number: '1084', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאללה מחמד (תביעת חוב הומטק)', number: '1085', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טימה נ\' יוני נהרי', number: '1086', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עומר נ\' זדקה', number: '1087', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסתר ביינה תביעת חוב אכא כח אדם', number: '1088', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלי נ\' מ.מ. גלואו ויצו', number: '1089', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריהוט תאונת עבודה', number: '1090', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קסטה נ\' שיפודי חן', number: '1091', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' ספייס (עופר בן אבי)', number: '1092', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יונס נ\' ספייס (מומי זרקא)', number: '1093', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יגלניק נ\' נאות שש', number: '1094', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טרחס נ\' אתרי מאור', number: '1095', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' גרינוולד', number: '1096', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלמון נ\' קנטרי גני תקווה', number: '1097', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוקבסלסי נ\' פלאפל בריבוע', number: '1098', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' סילקו מרכז הפיתה', number: '1099', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פנה נ\' אמון ניקיון', number: '1100', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלם נ\' גירף', number: '1101', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרמאי נ\' תורת חיים', number: '1102', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סיגט נ\' אלוף הניקיון סיגט נ\' צוות 3', number: '1103', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ירדנוס נ\' נוף המושבה', number: '1104', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהה נ\' מרקטל ברהה נ\' מורן אקספרס', number: '1105', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גנט נ\' סמינר בני ברק', number: '1106', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטם נ\' גרינוולד', number: '1107', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' גיא ספירשטיין', number: '1108', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קוקוב נ\' עידו שוחט', number: '1109', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טומי נ\' נאות השרון', number: '1110', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד נ\' רויאל קלין', number: '1111', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' הבית ניקיון ואחזקה', number: '1112', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' ועד הבית קוגלמן 5 פתח תקווה', number: '1113', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימנה נ\' י.ז קוקי (יוסי זגורי)', number: '1114', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' אתרי מאור', number: '1115', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוסה נ\' אושר עד', number: '1116', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בשיר נ\' רענן', number: '1117', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוסמן נ\' ספייס', number: '1118', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עוסמאן נ\' אושר עד', number: '1119', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוברק נ\' רויאל קלין', number: '1120', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' אלכסנדר גרוס', number: '1121', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריהוט נ\' הדקל', number: '1122', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' רדאר', number: '1123', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ויקטור הולינקה נ\' יקירי אונו (א. א זבולון) טטניה הולינקה נ\' יקירי אונו (א.א זבולון)', number: '1124', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גידאי נ\' ג\'קי אונסיס גידאי נ\' רדאר גידאי נ\' סיטי מרקט', number: '1125', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אברם נ\' ועד בית קשאני 8', number: '1126', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאלה נ\' מבריקים בניקיון', number: '1127', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סולומון נ\' קריאייטיב', number: '1128/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנסטסיה נ\' קריאייטיב', number: '1128/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ולדיסלב נ\' קריאייטיב', number: '1128/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מרקו נ\' קריאטייב זורן נ\' קריאייטיב', number: '1128/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איבאן נ\' מאפית אריאל (יעקובי)', number: '1128/5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ולנטינה נ\' סאן אביב פנסיונים (שניידר)', number: '1128/6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ווליקובה נ\' מאפית אריאל (יעקובי)', number: '1128/7', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלכסי נ\' מאפית אריאל (הורביץ)', number: '1128/8', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קאריג נ\' קריאייטיב (שטינוביץ)', number: '1128/9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנדריי נ\' קריאייטיב (גירשוביץ)', number: '1128/10', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הלינה נ\' קריאייטיב (גירשוביץ)', number: '1128/11', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לדה נ\' ארקפה (סדיקוב)', number: '1128/12', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סבטלנה \' קריאייטיב (גירשוביץ)', number: '1128/13', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טלום נ\' פוליקייק הצורפים (אמיר גז)', number: '1129/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'היילה נ\' פוליקייק הצורפים (יפים גוטקין)', number: '1129/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'בוקייה נ\' פוליקייק קפה זליג (מוהנד מרעי)', number: '1129/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אירינה נ\' פיס אוף קייק (אולג)', number: '1129/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולג פרולוב', number: '1129/5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יקטרינה נ\' פוליקייק', number: '1129/6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ואדים נ\' פוליקייק', number: '1129/7', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קריסטין נ\' קפה זליק', number: '1129/8', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ק', number: '1129/9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מראוי נ\' גריס הולה הולה דואה מסעדנות ובעלי מניות (שחר דור)', number: '1130/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נטליה נ\' גריס ויזניץ (גדי גליצקי)', number: '1130/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמו נ\' גריס טופ טן (אורטל דרקסלר)', number: '1130/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אמילה נ\' גריס ביסקוטי אמיר פורת נזרוב ואדים (ורד דאבוש)', number: '1130/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' גריס פרומול ברק גדעון טליה ניהול (מומי)', number: '1130/5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יקובו נ\' גריס שקע כוח (שחר ברנשטיין)', number: '1130/6', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לדה נ\' גריס (סדיקוב)', number: '1130/7', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צ\'יברה נ\' גריס בשר בגבעה (יעקובוביץ)', number: '1130/8', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קריסטין נ\' גריס', number: '1130/9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: '2 תביעות קטנות', number: '1130/9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רדגנ משרד הכלכלה', number: '1131/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ריקו נ\' ביסקוטי', number: '1131/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פלורנז נ\' ביסקוטי', number: '1131/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוצעב נ\' ביסקוטי', number: '1131/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאלה נ\' פוליטיב דב שמירה', number: '1131', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אלכסיי נ\' מעיני ויקטוריה (יעקובי)', number: '1132/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולדזמיר נ\' מעיני ויקטוריה (יעקובי)', number: '1132/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טומרוז נ\' מעיני ויקטוריה (יעקובי)', number: '1132/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מרינה נ\' מעיני ויקטוריה מקסימום (יעקובי)', number: '1132/4', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לבני נ\' מעיני ויקטוריה (יעקובי)', number: '1132/5', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ינה נ\' מעיני ויקטוריה (יעקובי)', number: '1132/7', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולגה נ\' מעיני מרס אבייב (יעקובי)', number: '1132/8', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ליפובה נ\' מעיני ויקטוריה (יעקובי)', number: '1132/9', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גיאורגי נ\' מעיני מרס אבייב', number: '1132/10', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גיה נ\' מקסימום מעיני מרס אבייב (יורם אלוש)', number: '1132/11', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קקבר נ\' מעיני מרס אבייב (יעקובי)', number: '1132/12', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גיאורגי נ\' מעיני אלפא (יעקובי)', number: '1132/13', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוניטבי נ\' מעיני אלפא (שם טוב)', number: '1132/14', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מאזן פדל נ\' נאות שש אנס פדל נ\' נאות שש', number: '1133', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יאסו נ\' סמדגה', number: '1134', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אסמאיט נ\' דרין תנופה', number: '1135', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנו נ\' רדאר לניאדו', number: '1136', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' דניה סיבוס', number: '1137', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גויטום נ\' נתיב הדעת', number: '1138', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' פרימיום איטליה', number: '1139', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שריף נ\' הלקוח המרוצה', number: '1140', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריזגר נ\' בראל ניהול גבריזגר נ\' וולט', number: '1141', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איסמעיל נ\' גירף', number: '1142', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רעות ביים אלעזר כפר שיתופי', number: '1143', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גאפר נ\' סמרט קלין', number: '1144', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' שוק העיר וקשת יונתן', number: '1145', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וויני נ\' תמיר וויס וויני נ\' נוף המושבה', number: '1146', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אולגה נ\' ספייס הלקוח המרוצה (יעקובוביץ)', number: '1147/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פיטאוי נ\' ספייס (כושר הרצליה) (גליצקי)', number: '1147/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טקלאי נ\' ספייס (כושר הרצליה) (גליצקי)', number: '1147/3', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שאויט נ\' נעם', number: '1148', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קוברום נ\' הלקוח המרוצה נונו מימי', number: '1149', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אחמד נ\' מאה אחוז גיוס אושר עד', number: '1150', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קמאל נ\' רדאר', number: '1151', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רמזי נ\' הר גילה', number: '1152', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איברהים נ\' הר גילה', number: '1153', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהנה נ\' משאב נדיר', number: '1154', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הבטום נ\' אלקטרה', number: '1155', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ווגיאו נ\' נעם גיל', number: '1156', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חסן נ\' רדאר', number: '1157', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פוטסום נ\' מימון דיין', number: '1158', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלם נ\' ג.ש ניצוץ', number: '1159', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולה נ\' ישיבת חדרי יוסף שלום', number: '1160', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוחמד נ\' שניצל קוקי', number: '1161', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ברהה נ\' נעם גיל', number: '1162', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סלם נ\' מ.א.ש אדיבים סלם נ\' שרותי כללית סלם נ\' ברק גדעון', number: '1163', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' ברק גדעון טוולדה נ\' בון קפה', number: '1164', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מהרי נ\' יאסו ברכה', number: '1165', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הגוס נ\' אתרי מאור מגדלי הים התיכון', number: '1166', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טספאי נ\' אלקטרה', number: '1167', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'באביקר נ\' מאיה', number: '1168', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צגה נ\' אתרי מאור מגדלי הים התיכון', number: '1169', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' אמון ניקיון', number: '1170', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קידנה נ\' שופרסל', number: '1171', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ולדי נ\' עוגן', number: '1172', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מולו נ\' M32 בורגר', number: '1173', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מוסא תאונת עבודה', number: '1174', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'זכריה נ\' ל.מ שירותי כח אדם', number: '1175', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רדה נ\' גור', number: '1176', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבדאלה נ\' דין קליה ושיווק', number: '1177', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אוקבאי נ\' טוטל קלין אידאה', number: '1178', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גבריהוט נ\' נעמי דיין', number: '1179', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'רוזמרי נ\' דום אבטחה (טל נוי)', number: '1180/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חואן נ\' דום אבטחה', number: '1180/2', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שאויט נ\' רדאר', number: '1181', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'צגאב נ\' נוי השדה', number: '1182', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קיפלה נ\' בית ספר למרחב', number: '1183', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נטלי נ\' איגרא פיט', number: '1184', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גרמאי נ\' מנהלים נכון', number: '1185', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'מברטום נ\' נהארי', number: '1186/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עיסא נ\' הר גילה', number: '1187', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אורלי לשם', number: '1188', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חסן נ\' מאמיס עסקי מזון', number: '1189', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אבירם נ\' סלעית', number: '1190', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' אושר עד (אוריאל)', number: '1191', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סנאיט נ\' בית ספר למרחב', number: '1192', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'קירוס נ\' מרקטו מעדנים', number: '1193', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שישאי נ\' שמעון שמואל', number: '1194', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גברמסקל נ\' קפה גן סיפור', number: '1195', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'שרביט נ\' תפארת משה', number: '1196', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טוולדה נ\' שמעון אלבאום', number: '1197', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הראל נ\' ביחד', number: '1198', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גנט נ\' ג\'ירף', number: '1199', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פיורי נ\' קצת אחרת פתרונות', number: '1200', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אנגלו נ\' קו לפליט', number: '1201', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'טורניקה נ\' קניג הנדסה אמזר נ\' קניג הדנסה', number: '1202', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הרון סולימאן נ\' פרש מרקט', number: '1203', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'נגוסה נ\' תפארת משה', number: '1204', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'וולדה נ\' עוגן ניהול', number: '1205/1', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אידריס נ\' סילקו', number: '1206', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אדם נ\' בורגר אגאדיר', number: '1207', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סגלט', number: '1208', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'סמרה נ\' נוי השדה', number: '1209', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'איסמעיל נ\' כרמיאל', number: '1210', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'אזמרה נ\' שמוליק שמעון', number: '1211', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'התאחדות התעשיינים נ\' ביכורים', number: '1212', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'חברות הניקיון נ\' טוטל קלין', number: '1213', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'יוסוף נ\' פרי הנדסת תבניות', number: '1214', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הצוות ניהול', number: '1215', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הפניקס נ\' טוטל קלין', number: '1216', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'פקרה נ\' אנטר פלוס אושר עד', number: '1217', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עידו דהן נ\' בית טוב', number: '1218', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'לשכת המסחר נ\' רפאלי', number: '1219', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'הצוות ניהול תביעות חוב', number: '1220', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'ימנה נ\' נוי השדה', number: '1221', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'עבד נ\' הוואי שרונה', number: '1222', court: '', createdAt: new Date().toISOString() },
+    { id: generateId(), name: 'גומה נ\' קוממיות דניה סיבוס', number: '1123', court: '', createdAt: new Date().toISOString() }
+  ];
+  tasks = [];
+  save();
+}
+
+
+// Initial render
+renderSidebar();
+renderMain();
+updateStats();
+checkAndNotify();
+
+// Auto-pull on load if sync enabled
+if (settings.syncEnabled && settings.sheetsUrl && navigator.onLine) {
+  setTimeout(() => doSync('pull', true), 1500);
+}
+
+// Auto-sync every 2 min (push)
+setInterval(() => {
+  if (settings.syncEnabled && settings.sheetsUrl && navigator.onLine) {
+    doSync('push', true);
+  }
+}, 2 * 60 * 1000);
+
+// Auto-pull every 2 min (to catch changes from other devices)
+setInterval(() => {
+  if (settings.syncEnabled && settings.sheetsUrl && navigator.onLine) {
+    doSync('pull', true);
+  }
+}, 2 * 60 * 1000);
+</script>
+</body>
+</html>
